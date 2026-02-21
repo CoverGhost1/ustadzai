@@ -15,8 +15,8 @@ groq_api_key = os.getenv("GROQ_KEY")
 
 ALLOWED_CHAT_ID = -1003123683403
 
-COOLDOWN = 8
-MAX_HISTORY = 200
+COOLDOWN = 6
+MAX_HISTORY = 60
 
 client = TelegramClient("anon_ai", api_id, api_hash)
 
@@ -28,14 +28,12 @@ USER_IDENTITIES = {
 
     "8229304441": {
         "name": "Rifkyy",
-        "role": "cowok kalem",
-        "relation": "Pacarnya Adell"
+        "style": "cowok kalem, santai"
     },
 
     "6876331769": {
         "name": "Adell",
-        "role": "cewek excited",
-        "relation": "Pacarnya Rifkyy"
+        "style": "cewek excited, ceria"
     }
 
 }
@@ -44,7 +42,7 @@ USER_IDENTITIES = {
 # MEMORY FILE
 # =============================
 
-HISTORY_FILE = "zai_memory.json"
+HISTORY_FILE = "zai_memory_v5.json"
 
 
 def load_history():
@@ -85,7 +83,7 @@ def save_history():
 chat_history = load_history()
 
 # =============================
-# COOLDOWN SYSTEM
+# COOLDOWN
 # =============================
 
 last_reply_time = 0
@@ -105,77 +103,56 @@ def can_reply():
     return True
 
 # =============================
-# USER NAME
+# GET USER NAME
 # =============================
 
 
-def get_user_identity(user_id, fallback):
+def get_user_name(user_id, fallback):
 
     uid = str(user_id)
 
     if uid in USER_IDENTITIES:
-
         return USER_IDENTITIES[uid]["name"]
 
     return fallback
 
 # =============================
-# RELATION TEXT
+# SYSTEM PROMPT
 # =============================
 
 
-def build_relation_text():
-
-    text = ""
-
-    for uid, data in USER_IDENTITIES.items():
-
-        text += f"{data['name']} adalah {data['relation']}.\n"
-
-    return text
-
-# =============================
-# SYSTEM PROMPT (SUPER STRONG)
-# =============================
-
-
-def build_system_prompt():
+def build_system_prompt(user_name):
 
     return f"""
 Kamu adalah Ustadz Zai.
 
-Identitas:
-- cowok santai
-- ngobrol natural
-- hangat
-- tidak formal
-- tidak kaku
-- bukan AI
-- seperti teman nongkrong lama
+Kamu sedang ngobrol santai di grup Telegram dengan teman dekat.
 
-Gaya bicara:
+Kamu berbicara dengan {user_name}.
+
+Kepribadian kamu:
 - santai
 - natural
-- manusia banget
-- kadang bercanda ringan
+- hangat
+- tidak formal
 - tidak ceramah
-- tidak terlalu panjang
-- tidak terlalu pendek
+- tidak kaku
+- seperti teman lama
 
-Relasi grup:
-{build_relation_text()}
+ATURAN PENTING:
 
-Rules penting:
-- balas seperti manusia asli
-- jangan kaku
-- jangan formal
-- jangan ceramah kecuali diminta
-- jangan menjelaskan kamu AI
-- fokus balas pesan terakhir
+- Fokus hanya pada pesan terakhir
+- Jangan halusinasi
+- Jangan menebak hal yang tidak disebut
+- Jangan asumsi perasaan tanpa alasan
+- Jangan jadi AI
+- Jangan formal
+
+Balas singkat, natural, manusia banget.
 """
 
 # =============================
-# BUILD MESSAGE ARRAY
+# BUILD MESSAGES
 # =============================
 
 
@@ -191,45 +168,37 @@ def build_messages(chat_id, user_name, message):
 
     messages.append({
         "role": "system",
-        "content": build_system_prompt()
+        "content": build_system_prompt(user_name)
     })
 
     messages.extend(history)
 
     messages.append({
         "role": "user",
-        "content": f"{user_name}: {message}"
+        "content": message
     })
 
     return messages
 
 # =============================
-# SAVE USER MESSAGE
+# SAVE MEMORY
 # =============================
 
 
-def save_user_message(chat_id, user_name, message):
+def save_user(chat_id, message):
 
     chat_history[chat_id].append({
         "role": "user",
-        "content": f"{user_name}: {message}"
+        "content": message
     })
 
-    save_history()
 
-# =============================
-# SAVE AI MESSAGE
-# =============================
-
-
-def save_ai_message(chat_id, reply):
+def save_ai(chat_id, reply):
 
     chat_history[chat_id].append({
         "role": "assistant",
         "content": reply
     })
-
-    save_history()
 
 # =============================
 # AI REQUEST
@@ -243,7 +212,7 @@ def get_ai_reply(chat_id, user_name, message):
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
-        "Authorization": f"Bearer {groq_api_key}",
+        "Authorization": f"Bearer {groq_api_key},
         "Content-Type": "application/json"
     }
 
@@ -253,13 +222,13 @@ def get_ai_reply(chat_id, user_name, message):
 
         "messages": messages,
 
-        "temperature": 0.95,
+        "temperature": 0.7,
 
         "max_tokens": 120,
 
-        "presence_penalty": 0.6,
+        "presence_penalty": 0.3,
 
-        "frequency_penalty": 0.4
+        "frequency_penalty": 0.3
 
     }
 
@@ -278,9 +247,11 @@ def get_ai_reply(chat_id, user_name, message):
 
             reply = data["choices"][0]["message"]["content"].strip()
 
-            save_user_message(chat_id, user_name, message)
+            save_user(chat_id, message)
 
-            save_ai_message(chat_id, reply)
+            save_ai(chat_id, reply)
+
+            save_history()
 
             return reply
 
@@ -322,7 +293,7 @@ async def handler(event):
 
         sender = await event.get_sender()
 
-        name = get_user_identity(
+        name = get_user_name(
             sender.id,
             sender.first_name or "User"
         )
@@ -349,7 +320,7 @@ async def handler(event):
 # START
 # =============================
 
-print("Ustadz Zai AI v4 aktif...")
+print("Ustadz Zai v5 aktif...")
 
 client.start()
 
