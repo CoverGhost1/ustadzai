@@ -74,7 +74,7 @@ def get_hf_reply(chat_id, user_msg):
         full_context += f"{msg}\n"
     full_context += "Ustad Zai:"
 
-    url = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+    url = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
     
     payload = {
