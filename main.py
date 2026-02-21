@@ -2,22 +2,24 @@ import os
 from telethon import TelegramClient, events
 from collections import deque
 import json
-import requests
+from huggingface_hub import InferenceClient
 
 # =============================
 # CONFIG
 # =============================
 api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")  # ✅ perbaikan syntax
+api_hash = os.getenv("API_HASH")
 HF_TOKEN = os.getenv("HF_TOKEN")
-MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
+
+MODEL_ID = "Qwen/Qwen3.5-397B-A17B:novita"  # pastikan model chat
 ALLOWED_CHAT_ID = -1003123683403
 HISTORY_FILE = "group_history.json"
 
 # =============================
-# INIT TELEGRAM
+# INIT TELEGRAM & HF CLIENT
 # =============================
 client = TelegramClient('anon_ai', api_id, api_hash)
+hf_client = InferenceClient(api_key=HF_TOKEN)
 
 # =============================
 # MEMORY SYSTEM
@@ -49,37 +51,34 @@ def build_system_prompt():
 Jawab natural, singkat, jangan bilang AI, gunakan emoji seperlunya."""
 
 # =============================
-# HF COMPLETIONS HANDLER
+# HF CHAT HANDLER
 # =============================
 def get_hf_reply(chat_id, user_msg):
     history = chat_history.get(chat_id, deque(maxlen=10))
-    history.append(f"User: {user_msg}")
+    # Tambahkan user ke history
+    history.append({"role": "user", "content": [{"type": "text", "text": user_msg}]})
 
-    full_prompt = f"{build_system_prompt()}\n\n" + "\n".join(history) + "\nUstad Zai:"
-
-    # ✅ URL HF Router Completions endpoint yang benar
-    url = f"https://api-inference.huggingface.co/v1/engines/{MODEL_ID}/completions"
-    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
-    payload = {
-        "inputs": full_prompt,
-        "parameters": {"max_new_tokens": 150, "temperature": 0.7, "return_full_text": False},
-        "options": {"wait_for_model": True}
-    }
+    # Bangun message list untuk HF chat
+    messages = [{"role": "system", "content": [{"type": "text", "text": build_system_prompt()}]}] + list(history)
 
     try:
-        res = requests.post(url, headers=headers, json=payload)
-        if res.status_code == 200:
-            data = res.json()
-            reply_text = data[0].get("generated_text", "").split("User:")[0].strip()
-            history.append(f"AI: {reply_text}")
-            chat_history[chat_id] = history
-            save_history(chat_history)
-            return reply_text
-        elif res.status_code == 503:
-            return "Bentar ya, lagi loading model... 🙏"
-        else:
-            print(f"❌ HF Error {res.status_code}: {res.text}")
-            return "Maaf, ada masalah dengan model. 🙏"
+        completion = hf_client.chat.completions.create(
+            model=MODEL_ID,
+            messages=messages,
+        )
+        # Ambil text dari assistant
+        reply_content = completion.choices[0].message["content"]
+        reply_text = ""
+        for c in reply_content:
+            if c["type"] == "text":
+                reply_text += c["text"]
+
+        # Simpan ke history
+        history.append({"role": "assistant", "content": [{"type": "text", "text": reply_text}]})
+        chat_history[chat_id] = history
+        save_history(chat_history)
+        return reply_text
+
     except Exception as e:
         print("❌ HF exception:", e)
         return "Maaf, terjadi error saat memproses pesanmu. 🙏"
@@ -107,6 +106,6 @@ async def handle_group(event):
 # =============================
 # RUN
 # =============================
-print(f"🤖 Ustadz AI (Mistral Instruct) aktif menggunakan model: {MODEL_ID}")
+print(f"🤖 Ustadz AI (HF Router) aktif menggunakan model: {MODEL_ID}")
 client.start()
 client.run_until_disconnected()
