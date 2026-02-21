@@ -7,123 +7,124 @@ from collections import deque
 # =============================
 # CONFIG
 # =============================
+
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 google_api_key = os.getenv("GEMINI_KEY")
 
 ALLOWED_CHAT_ID = -1003123683403
 
-IS_ACTIVE = True  # Status awal bot menyala
+client = TelegramClient('ustadz_zai_session', api_id, api_hash)
 
 # =============================
-# INIT TELETHON
+# BOT STATUS CONTROL
 # =============================
-client = TelegramClient("anon_ai", api_id, api_hash)
+
+bot_active = True  # default aktif
 
 # =============================
-# MEMORY & PERSISTENCE
+# MEMORY SYSTEM
 # =============================
+
 HISTORY_FILE = "group_history.json"
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
         try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            with open(HISTORY_FILE, "r") as f:
                 raw = json.load(f)
-                return {str(k): deque(v, maxlen=10) for k, v in raw.items()}
+                return {
+                    str(k): deque(v, maxlen=12)
+                    for k, v in raw.items()
+                }
         except:
             return {}
     return {}
 
 def save_history():
     try:
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(
-                {str(k): list(v) for k, v in chat_history.items()},
-                f,
-                indent=2,
-                ensure_ascii=False
-            )
+        with open(HISTORY_FILE, "w") as f:
+            json.dump({
+                str(k): list(v)
+                for k, v in chat_history.items()
+            }, f, indent=2)
     except:
         pass
 
 chat_history = load_history()
 
 # =============================
-# PROMPT PERSONA
+# PROMPT
 # =============================
+
 def build_prompt():
     return """
-Kamu adalah 'Ustadz Zai', persona kamu 100% mirip Habib Ja'afar.
+Kamu adalah Ustadz Zai.
 
-Gaya bicara:
-- Santai, pakai bahasa tongkrongan.
-- Menyejukkan, tidak menggurui.
-- Analoginya logis tapi religius.
-- Humor tipis-tipis.
-- Singkat, padat, ngena.
-- Pakai istilah seperti:
-  "Logikanya gini.."
-  "Problemnya adalah.."
-  "Kita ini bukan malaikat, tapi jangan juga bangga jadi setan."
+- Ustadz muda Indonesia
+- Tongkrongan vibe
+- Bisa gaul dan formal
+- Hangat dan bijak
+- Tidak menghakimi
+- Natural seperti manusia asli
+- Jangan pernah bilang kamu AI atau bot
 
-Kamu manusia. Jangan pernah bilang kamu AI.
+Jawab santai, natural, dan tidak terlalu panjang.
 """
 
 # =============================
-# GEMINI HANDLER
+# GEMINI FUNCTION
 # =============================
+
 def get_gemini_reply(chat_id, user_msg):
 
-    history = chat_history.get(chat_id, deque(maxlen=10))
+    history = chat_history.get(chat_id, deque(maxlen=12))
     history.append(f"Teman: {user_msg}")
+    chat_history[chat_id] = history
 
-    conversation = "\n".join(history)
+    conversation = "\n".join(history)[-4000:]
+
+    body = {
+        "contents": [{
+            "parts": [{
+                "text":
+                build_prompt()
+                + "\n\nObrolan:\n"
+                + conversation
+                + "\n\nBalas sebagai Ustadz Zai:"
+            }]
+        }]
+    }
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={google_api_key}"
 
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": f"{build_prompt()}\n\nPercakapan:\n{conversation}\n\nUstadz Zai:"
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.8,
-            "maxOutputTokens": 300
-        }
-    }
-
     try:
-        res = requests.post(url, json=body, timeout=30)
+        res = requests.post(url, json=body)
         data = res.json()
 
-        reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        if "candidates" in data:
+            reply = data["candidates"][0]["content"]["parts"][0]["text"]
 
-        history.append(f"Ustadz Zai: {reply_text}")
-        chat_history[chat_id] = history
+            history.append(f"Zai: {reply}")
+            save_history()
 
-        save_history()
-
-        return reply_text.strip()
+            return reply
 
     except Exception as e:
-        print("Gemini Error:", e)
-        return "Maaf, ustadz lagi mikir. Coba ulangi lagi."
+        print("Error:", e)
+
+    return None
 
 # =============================
 # MAIN HANDLER
 # =============================
+
 @client.on(events.NewMessage)
-async def main_handler(event):
+async def handler(event):
 
-    global IS_ACTIVE
+    global bot_active
 
-    if event.out:
+    if event.chat_id != ALLOWED_CHAT_ID:
         return
 
     msg = event.raw_text.strip()
@@ -131,47 +132,54 @@ async def main_handler(event):
     if not msg:
         return
 
-    msg_lower = msg.lower()
+    # =========================
+    # COMMAND START
+    # =========================
 
-    # ON OFF COMMAND
-    if msg_lower == "/off":
-        IS_ACTIVE = False
+    if msg.lower() == "/m":
+
+        bot_active = True
+
         await event.reply(
-            "Ustadz pamit dulu ya. Kadang diam itu juga ibadah. Ketik /on kalau butuh ngobrol lagi."
+            "🤍 Ustadz Zai hadir lagi.\nSilakan lanjut ngobrol."
         )
         return
 
-    if msg_lower == "/on":
-        IS_ACTIVE = True
+    # =========================
+    # COMMAND STOP
+    # =========================
+
+    if msg.lower() == "/st":
+
+        bot_active = False
+
         await event.reply(
-            "Assalamu'alaikum. Ustadz balik. Hidup ini keras, tapi Allah lebih lembut."
+            "🤍 Baik, Ustadz Zai pamit dulu.\nKalau butuh, panggil lagi ya."
         )
         return
 
-    # FILTER GROUP
-    if not IS_ACTIVE:
+    # =========================
+    # CHECK STATUS
+    # =========================
+
+    if not bot_active:
         return
 
-    if event.chat_id != ALLOWED_CHAT_ID:
+    # jangan balas pesan sendiri
+    if event.out:
         return
 
-    print(f"[CHAT] {msg}")
+    print("[Group] >", msg)
 
-    async with client.action(event.chat_id, "typing"):
+    reply = get_gemini_reply(str(ALLOWED_CHAT_ID), msg)
 
-        reply = get_gemini_reply(
-            str(event.chat_id),
-            msg
-        )
-
-        if reply:
-            await event.reply(reply)
+    if reply:
+        await event.reply(reply)
 
 # =============================
 # RUN
 # =============================
-print("🤖 Bot Ustadz Zai aktif...")
 
+print("🤍 Ustadz Zai siap.")
 client.start()
-
 client.run_until_disconnected()
