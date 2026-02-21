@@ -20,11 +20,10 @@ ALLOWED_CHAT_ID = -1003123683403
 client = TelegramClient('anon_ai', api_id, api_hash)
 
 # =============================
-# SESSION & MEMORY SYSTEM
+# MEMORY SYSTEM
 # =============================
-session = requests.Session()  # ✅ Session global biar bisa dipakai di get_hf_reply
-
 HISTORY_FILE = "group_history.json"
+chat_history = {}
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -49,23 +48,19 @@ chat_history = load_history()
 # PROMPT BUILDER
 # =============================
 def build_system_prompt():
-    return """Kamu adalah ustadz muda bernama ustad zai. Kamu lagi nongkrong di grup Telegram.
-Karakter: Santai, humble, hangat, gak kaku, gaya bahasa anak muda tapi tetap sopan (Ramadan vibes).
-Tugas: Tanggapi obrolan dengan singkat, natural, dan jangan bilang kamu AI. Gunakan emoji seperlunya."""
+    return """Kamu adalah ustadz muda bernama ustad zai. Santai, hangat, Ramadan vibes.
+Jawab natural, singkat, jangan bilang AI, gunakan emoji seperlunya."""
 
 # =============================
-# HUGGING FACE HANDLER
+# HUGGING FACE HANDLER (Router API)
 # =============================
 def get_hf_reply(chat_id, user_msg):
     history = chat_history.get(chat_id, deque(maxlen=10))
     history.append(f"User: {user_msg}")
 
-    full_context = f"{build_system_prompt()}\n\n"
-    for msg in history:
-        full_context += f"{msg}\n"
-    full_context += "Ustad Zai:"
+    full_context = f"{build_system_prompt()}\n\n" + "\n".join(history) + "\nUstad Zai:"
 
-    url = f"https://api-inference.huggingface.co/v1/engines/{MODEL_ID}/completions"
+    url = f"https://router.huggingface.co/api/models/{MODEL_ID}"
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
         "Content-Type": "application/json"
@@ -83,17 +78,16 @@ def get_hf_reply(chat_id, user_msg):
     }
 
     try:
-        res = session.post(url, headers=headers, json=payload)
-
+        res = requests.post(url, headers=headers, json=payload)
         if res.status_code == 200:
             data = res.json()
-            reply_text = data[0].get('generated_text', '').split("User:")[0].strip()
+            reply_text = data[0].get("generated_text", "").split("User:")[0].strip()
             history.append(f"AI: {reply_text}")
             chat_history[chat_id] = history
             save_history(chat_history)
             return reply_text
         elif res.status_code == 503:
-            return "Bentar ya, lagi loading memorinya... 🙏"
+            return "Bentar ya, lagi loading model... 🙏"
         else:
             print(f"❌ Error {res.status_code}: {res.text}")
             return None
