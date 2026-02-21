@@ -65,51 +65,57 @@ Kadang plenger, bercanda ringan, tapi tetap islami.
 Gunakan bahasa sehari-hari, emoji seperlunya, dan gaya ngobrol santai.
 Jawab singkat tapi jelas, bisa kasih motivasi, nasehat, atau info islami.
 Jangan sebut kalau kamu AI, jangan terlalu formal."""
-
 # =============================
 # HF CHAT HANDLER
 # =============================
 def get_hf_reply(chat_id, user_msg):
+    # Get or create history for this chat
     if chat_id not in chat_history:
         chat_history[chat_id] = deque(maxlen=10)
     
     history = chat_history[chat_id]
     
-    messages = [{"role": "system", "content": build_system_prompt()}]
+    # Prepare messages for the chat model
+    messages = [
+        {"role": "system", "content": build_system_prompt()}
+    ]
     
+    # Add conversation history (if any)
     for msg in list(history):
         messages.append(msg)
     
+    # Add current user message
     messages.append({"role": "user", "content": user_msg})
 
     try:
+        # Make the API call
         completion = hf_client.chat.completions.create(
             model=MODEL_ID,
             messages=messages,
             max_tokens=500,
             temperature=0.7,
         )
-
+        
+        # Extract the response - different models might have different response formats
         if hasattr(completion, 'choices') and len(completion.choices) > 0:
             reply_text = completion.choices[0].message.content
         else:
+            # Fallback for different response formats
             reply_text = str(completion)
-
-        # Sentuhan gaul tambahan
-        gaul_emoji = ["😎", "😉", "😁", "✨", "🌙"]
-        if random.random() < 0.3:  # 30% chance nambah emoji plenger
-            reply_text += " " + random.choice(gaul_emoji)
-
+        
+        # Update history
         history.append({"role": "user", "content": user_msg})
         history.append({"role": "assistant", "content": reply_text})
         
+        # Save to file
         save_history(chat_history)
         
         return reply_text
 
     except Exception as e:
         print(f"❌ HF exception: {type(e).__name__}: {e}")
-        return "Maaf, bro, ada error pas memproses pesanmu 😅. Coba lagi ya."
+        return "Maaf, terjadi error saat memproses pesanmu. Silakan coba lagi nanti. 🙏"
+
 # =============================
 # TELEGRAM HANDLER
 # =============================
