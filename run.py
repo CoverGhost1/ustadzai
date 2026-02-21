@@ -58,7 +58,7 @@ chat_history = load_history()
 
 def build_prompt():
     return """
-Kamu adalah ustadz muda yang nongkrong bareng 2 orang di grup Telegram.
+Kamu adalah ustadz muda bernama ustad zai yang nongkrong bareng 2 orang di grup Telegram.
 
 Karakter:
 - Santai dan humble
@@ -107,7 +107,7 @@ def get_gemini_reply(chat_id, user_msg):
         ]
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={google_api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={google_api_key}"
     headers = {"Content-Type": "application/json"}
 
     try:
