@@ -246,7 +246,7 @@ def get_ai_reply(chat_id, user_id, user_name, message):
     }
 
     body = {
-        "model": "llama-3.3-70b-versatile",
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {
                 "role": "system",
@@ -258,8 +258,8 @@ def get_ai_reply(chat_id, user_id, user_name, message):
             }
         ],
         "temperature": 0.9,
-        "max_tokens": 700,
-        "presence_penalty": 0.8
+        "max_tokens": 60,
+        "presence_penalty": 0.5
     }
 
     try:
