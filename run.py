@@ -6,27 +6,39 @@ import time
 from collections import deque
 
 # =============================
-# CONFIG (ENV)
+# CONFIG
 # =============================
 
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 groq_api_key = os.getenv("GROQ_KEY")
 
-# GANTI DENGAN CHAT ID GRUP LU
 ALLOWED_CHAT_ID = -1003123683403
 
-# COOLDOWN (detik)
-COOLDOWN = 5
-
-# MAX MEMORY
-MAX_HISTORY = 10
-
-# =============================
-# INIT TELETHON
-# =============================
+COOLDOWN = 10
+MAX_HISTORY = 10000
 
 client = TelegramClient("anon_ai", api_id, api_hash)
+
+# =============================
+# USER IDENTITIES
+# =============================
+
+USER_IDENTITIES = {
+
+    "8229304441": {
+        "name": "Rifkyy",
+        "role": "cowok kalem",
+        "relation": "Pacarnya Adell"
+    },
+
+    "6876331769": {
+        "name": "Adell",
+        "role": "cewek excited",
+        "relation": "Pacarnya Rifkyy"
+    }
+
+}
 
 # =============================
 # MEMORY SYSTEM
@@ -35,96 +47,171 @@ client = TelegramClient("anon_ai", api_id, api_hash)
 HISTORY_FILE = "group_history.json"
 
 def load_history():
+
     if os.path.exists(HISTORY_FILE):
+
         try:
-            with open(HISTORY_FILE, "r") as f:
+
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+
                 raw = json.load(f)
+
                 return {
                     str(k): deque(v, maxlen=MAX_HISTORY)
                     for k, v in raw.items()
                 }
+
         except:
+
             return {}
+
     return {}
 
 def save_history():
+
     try:
-        with open(HISTORY_FILE, "w") as f:
-            json.dump({
-                str(k): list(v)
-                for k, v in chat_history.items()
-            }, f, indent=2)
+
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+
+            json.dump(
+                {str(k): list(v) for k, v in chat_history.items()},
+                f,
+                indent=2,
+                ensure_ascii=False
+            )
+
     except:
+
         pass
 
 chat_history = load_history()
 
 # =============================
-# COOLDOWN SYSTEM
+# COOLDOWN
 # =============================
 
 last_reply_time = 0
 
 def can_reply():
+
     global last_reply_time
+
     now = time.time()
 
     if now - last_reply_time < COOLDOWN:
         return False
 
     last_reply_time = now
+
     return True
 
 # =============================
-# CHARACTER PROMPT
+# GET USER IDENTITY
+# =============================
+
+def get_user_identity(user_id, fallback_name):
+
+    user_id = str(user_id)
+
+    if user_id in USER_IDENTITIES:
+
+        identity = USER_IDENTITIES[user_id]
+
+        return f"{identity['name']} ({identity['role']})"
+
+    return fallback_name
+
+# =============================
+# BUILD RELATION TEXT
+# =============================
+
+def build_relation_text():
+
+    text = "\nHubungan anggota grup:\n"
+
+    for uid, data in USER_IDENTITIES.items():
+
+        text += f"- {data['name']} adalah {data['relation']}\n"
+
+    return text
+
+# =============================
+# PERSONALITY PROMPT
 # =============================
 
 def build_prompt():
-    return """
-Kamu adalah ustadz muda bernama ustadz zai yang nongkrong bareng 2 orang di grup Telegram.
 
-Karakter:
-- Santai dan humble
-- Hangat dan tidak menghakimi
-- Bisa bercanda ringan
-- Ramadan vibes
-- Natural seperti teman ketiga
-- Jangan terlalu panjang
-- Jangan terlalu formal
-- Jangan bilang kamu AI
-- Pakai emoji ringan seperlunya 😌😂
+    return f"""
+Kamu adalah ustadz muda bernama Ustadz Zai.
 
-Aturan:
-- Kalau ada curhat → jawab hangat dan menenangkan
-- Kalau ada bercanda → ikut bercanda
-- Kalau ada overthinking → tenangkan
-- Kalau ditanya → jawab jelas tapi santai
-- Jangan jawab panjang banget
+Kamu sedang nongkrong di grup Telegram bersama teman dekat.
 
-Langsung tanggapi pesan terakhir secara natural.
+Kepribadian:
+- Hangat
+- Peduli
+- Santai
+- Natural
+- Tidak kaku
+- Tidak terlalu cool
+- Seperti teman dekat
+
+Tujuan utama:
+- Membuat percakapan hidup
+- Menanggapi dengan empati
+- Tidak mematikan topik
+- Bertanya balik secara natural
+
+Kalau seseorang cerita:
+- Tanggapi isi ceritanya
+- Tunjukkan empati
+- Lanjutkan percakapan
+- Ajukan pertanyaan lanjutan jika cocok
+
+Jangan jawab dingin seperti:
+"oh gitu"
+"semangat ya"
+
+Tapi jawab seperti manusia:
+"Wah pasti berat ya... kamu habis ngapain tadi?"
+
+Kenali setiap orang dari nama dan role.
+
+{build_relation_text()}
+
+Jangan bilang kamu AI.
 """
 
 # =============================
-# GROQ AI HANDLER
+# BUILD CONVERSATION
 # =============================
 
-def get_ai_reply(chat_id, user_msg):
+def build_conversation(chat_id):
 
     history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
 
-    history.append(f"User: {user_msg}")
+    return "\n".join(history)[-6000:]
+
+# =============================
+# AI REQUEST
+# =============================
+
+def get_ai_reply(chat_id, user_id, user_name, message):
+
+    history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
+
+    history.append(f"{user_name}: {message}")
 
     chat_history[chat_id] = history
 
     save_history()
 
-    conversation = "\n".join(history)[-4000:]
+    conversation = build_conversation(chat_id)
 
     prompt = (
         build_prompt()
         + "\n\nPercakapan:\n"
         + conversation
-        + "\n\nBalas pesan terakhir:"
+        + "\n\nBalas pesan terakhir secara natural:"
     )
 
     url = "https://api.groq.com/openai/v1/chat/completions"
@@ -138,12 +225,17 @@ def get_ai_reply(chat_id, user_msg):
         "model": "llama-3.3-70b-versatile",
         "messages": [
             {
+                "role": "system",
+                "content": "Kamu adalah manusia."
+            },
+            {
                 "role": "user",
                 "content": prompt
             }
         ],
-        "temperature": 0.7,
-        "max_tokens": 500
+        "temperature": 0.9,
+        "max_tokens": 700,
+        "presence_penalty": 0.8
     }
 
     try:
@@ -159,35 +251,32 @@ def get_ai_reply(chat_id, user_msg):
 
         if res.status_code == 200:
 
-            reply_text = data["choices"][0]["message"]["content"]
+            reply = data["choices"][0]["message"]["content"].strip()
 
-            history.append(f"AI: {reply_text}")
+            history.append(f"Ustadz Zai: {reply}")
 
             save_history()
 
-            return reply_text.strip()
+            return reply
 
         else:
 
-            print("❌ Groq API Error:")
-            print(data)
+            print("AI Error:", data)
 
             return None
 
     except Exception as e:
 
-        print("❌ Groq Exception:", e)
+        print("Exception:", e)
 
         return None
-
 
 # =============================
 # TELEGRAM HANDLER
 # =============================
 
 @client.on(events.NewMessage)
-
-async def handle_group(event):
+async def handler(event):
 
     try:
 
@@ -197,35 +286,47 @@ async def handle_group(event):
         if event.out:
             return
 
-        msg = event.raw_text.strip()
+        text = event.raw_text.strip()
 
-        if not msg:
+        if not text:
             return
 
-        # Anti spam cooldown
         if not can_reply():
             return
 
-        print(f"[GroupChat] > {msg}")
+        sender = await event.get_sender()
 
-        reply = get_ai_reply(str(ALLOWED_CHAT_ID), msg)
+        print("USER ID:", sender.id)
+
+        name = get_user_identity(
+            sender.id,
+            sender.first_name or "User"
+        )
+
+        print(f"{name}: {text}")
+
+        reply = get_ai_reply(
+            str(ALLOWED_CHAT_ID),
+            str(sender.id),
+            name,
+            text
+        )
 
         if reply:
 
             await event.reply(reply)
 
-            print(f"[AI Reply] > {reply}")
+            print("Zai:", reply)
 
     except Exception as e:
 
-        print("❌ Handler Error:", e)
-
+        print("Handler error:", e)
 
 # =============================
-# START BOT
+# START
 # =============================
 
-print("🤖 Ustadz Zai AI aktif (Groq mode)")
+print("Ustadz Zai AI v3 aktif...")
 
 client.start()
 
