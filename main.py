@@ -68,39 +68,50 @@ def get_hf_reply(chat_id, user_msg):
     history = chat_history.get(chat_id, deque(maxlen=10))
     history.append(f"User: {user_msg}")
     
-    # Format Prompt sesuai standar chat model di Hugging Face
+    # Format prompt yang lebih bersih
     full_context = f"{build_system_prompt()}\n\n"
     for msg in history:
         full_context += f"{msg}\n"
     full_context += "Ustad Zai:"
 
-    url = f"https://router.huggingface.co/hf-inference/models/{MODEL_ID}"
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    # URL ROUTER TERBARU
+    url = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+    
+    # Headers
+    headers = {
+        "Authorization": f"Bearer {HF_TOKEN}",
+        "Content-Type": "application/json"
+    }
     
     payload = {
         "inputs": full_context,
         "parameters": {
-            "max_new_tokens": 250,
+            "max_new_tokens": 150,
             "temperature": 0.7,
-            "top_p": 0.9,
             "return_full_text": False
+        },
+        "options": {
+            "wait_for_model": True  # PENTING: Supaya gak error pas model lagi loading
         }
     }
 
     try:
         res = requests.post(url, headers=headers, json=payload)
-        data = res.json()
-
+        
+        # Cek status code sebelum di .json()
         if res.status_code == 200:
-            # HF mengembalikan list, ambil teks dari index 0
+            data = res.json()
             reply_text = data[0]['generated_text'].split("User:")[0].strip()
             history.append(f"AI: {reply_text}")
             chat_history[chat_id] = history
             save_history(chat_history)
             return reply_text
+        elif res.status_code == 503:
+            return "Bentar ya, lagi loading bentar memorinya... Coba chat lagi sedetik lagi. 🙏"
         else:
-            print("❌ HF error:", data)
-            return "Waduh, lagi agak loading nih otak saya... 🙏"
+            print(f"❌ Error {res.status_code}: {res.text}")
+            return None
+            
     except Exception as e:
         print("❌ HF exception:", e)
         return None
