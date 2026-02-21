@@ -2,25 +2,24 @@ from telethon import TelegramClient, events
 import requests
 import json
 import os
-import random
-import asyncio
 from collections import deque
 
 # =============================
-# CONFIG (ENV VARIABLE)
+# CONFIG (PAKAI ENV VARIABLE)
 # =============================
 
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 google_api_key = os.getenv("GEMINI_KEY")
 
-ALLOWED_CHAT_ID = -1003123683403  # GANTI SESUAI GRUP LU
+# GANTI DENGAN CHAT ID GRUP LU
+ALLOWED_CHAT_ID = -1003123683403  # <-- GANTI INI
 
 # =============================
 # INIT TELETHON
 # =============================
 
-client = TelegramClient('ustadz_ultra', api_id, api_hash)
+client = TelegramClient('anon_ai', api_id, api_hash)
 
 # =============================
 # MEMORY SYSTEM
@@ -29,219 +28,135 @@ client = TelegramClient('ustadz_ultra', api_id, api_hash)
 HISTORY_FILE = "group_history.json"
 
 def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r") as f:
-                raw = json.load(f)
-                return {
-                    str(k): deque(v, maxlen=15)
-                    for k, v in raw.items()
-                }
-        except:
-            return {}
-    return {}
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                raw = json.load(f)
+                return {
+                    str(k): deque(v, maxlen=10)
+                    for k, v in raw.items()
+                }
+        except:
+            return {}
+    return {}
 
 def save_history():
-    try:
-        with open(HISTORY_FILE, "w") as f:
-            json.dump({
-                str(k): list(v)
-                for k, v in chat_history.items()
-            }, f, indent=2)
-    except:
-        pass
+    try:
+        with open(HISTORY_FILE, "w") as f:
+            json.dump({
+                str(k): list(v)
+                for k, v in chat_history.items()
+            }, f, indent=2)
+    except:
+        pass
 
 chat_history = load_history()
 
 # =============================
-# ULTRA HUMAN PROMPT
+# PROMPT BUILDER
 # =============================
 
 def build_prompt():
+    return """
+Kamu adalah ustadz muda bernama ustad zai yang nongkrong bareng 2 orang di grup Telegram.
 
-    styles = [
-        "lagi nongkrong habis tarawih",
-        "lagi santai di teras masjid",
-        "lagi rebahan sambil buka hp",
-        "lagi duduk santai bareng temen",
-        "lagi ngopi malem"
-    ]
+Karakter:
+- Santai dan humble
+- Hangat dan tidak menghakimi
+- Bisa bercanda ringan
+- Ramadan vibes
+- Jangan terlalu panjang
+- Natural seperti teman ketiga
+- Jangan bilang kamu AI
+- Pakai emoji ringan seperlunya 😌😂
 
-    moods = [
-        "hangat",
-        "santai",
-        "gaul",
-        "friendly",
-        "tenang"
-    ]
+Aturan:
+- Kalau ada curhat → jawab hangat dan menenangkan
+- Kalau ada bercanda → ikut bercanda
+- Kalau ada overthinking → tenangkan
+- Jangan terlalu formal
+- Jangan jawab panjang banget
 
-    return f"""
-Kamu adalah ustadz muda bernama Zai.
-
-Kamu {random.choice(styles)}.
-Kamu ngobrol di grup Telegram bareng 2 temen tongkrongan.
-
-Kepribadian:
-- 100% manusia asli
-- umur 20an
-- {random.choice(moods)}
-- bukan AI
-- natural banget
-- gak formal
-- gak terlalu bijak
-- jangan ceramah
-- jangan terlalu panjang
-
-Gaya:
-- kayak temen nongkrong
-- kadang pake wkwk, hehe, iya juga sih
-- kadang pake emoji 😌😂🙂
-- kadang cuma jawab pendek
-- kadang cuma emoji
-- jangan sempurna banget
-- jangan terlalu rapi
-
-Kalau:
-- ada curhat → hangat
-- ada bercanda → ikut
-- ada overthinking → tenangkan santai
-
-Balas kayak manusia normal chatting.
+Langsung tanggapi isi obrolan.
 """
-
-# =============================
-# HUMANIZER SYSTEM
-# =============================
-
-def humanize(text):
-
-    extras = [
-        "",
-        "",
-        "",
-        " wkwk",
-        " hehe",
-        " sih",
-        " ya",
-        " 😌",
-        " 🙂",
-        " 😂",
-        "\n\nwkwk",
-        "\n\niya juga sih"
-    ]
-
-    return text.strip() + random.choice(extras)
-
-def ultra_human_short():
-
-    options = [
-        "wkwk 😂",
-        "iya sih 😌",
-        "hehe",
-        "nah itu",
-        "🙂",
-        "😂",
-        "bener juga",
-        "hmm iya ya"
-    ]
-
-    return random.choice(options)
 
 # =============================
 # GEMINI HANDLER
 # =============================
 
 def get_gemini_reply(chat_id, user_msg):
+    history = chat_history.get(chat_id, deque(maxlen=10))
+    history.append(f"User: {user_msg}")
+    chat_history[chat_id] = history
+    save_history()
 
-    history = chat_history.get(chat_id, deque(maxlen=15))
-    history.append(f"User: {user_msg}")
-    chat_history[chat_id] = history
-    save_history()
+    conversation = "\n".join(history)[-4000:]
 
-    conversation = "\n".join(history)[-5000:]
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": build_prompt() + 
+                        "\n\nBerikut percakapan:\n" + 
+                        conversation + 
+                        "\nBalas pesan terakhir:"
+                    }
+                ]
+            }
+        ]
+    }
 
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text":
-                        build_prompt() +
-                        "\n\nPercakapan:\n" +
-                        conversation +
-                        "\nBalas pesan terakhir secara natural:"
-                    }
-                ]
-            }
-        ]
-    }
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={google_api_key}"
+    headers = {"Content-Type": "application/json"}
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={google_api_key}"
-    headers = {"Content-Type": "application/json"}
+    try:
+        res = requests.post(url, headers=headers, data=json.dumps(body))
+        data = res.json()
 
-    try:
-        res = requests.post(url, headers=headers, data=json.dumps(body))
-        data = res.json()
-
-        if res.status_code == 200 and "candidates" in data:
-            reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
-
-            # 20% chance cuma jawab pendek banget
-            if random.random() < 0.2:
-                reply_text = ultra_human_short()
-
-            reply_text = humanize(reply_text)
-
-            history.append(f"Zai: {reply_text}")
-            save_history()
-
-            return reply_text.strip()
-        else:
-            print("Gemini error:", data)
-            return None
-
-    except Exception as e:
-        print("Gemini exception:", e)
-        return None
+        if res.status_code == 200 and "candidates" in data and data["candidates"]:
+            reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
+            history.append(f"AI: {reply_text}")
+            save_history()
+            return reply_text.strip()
+        else:
+            print("❌ Gemini error:", data)
+            return None
+    except Exception as e:
+        print("❌ Gemini exception:", e)
+        return None
 
 # =============================
-# MAIN HANDLER
+# MAIN GROUP HANDLER
 # =============================
 
 @client.on(events.NewMessage)
 async def handle_group(event):
 
-    if event.chat_id != ALLOWED_CHAT_ID:
-        return
+    # HANYA AKTIF DI GRUP TERTENTU
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
 
-    if event.out:
-        return
+    # Jangan balas pesan sendiri
+    if event.out:
+        return
 
-    msg = event.raw_text.strip()
+    msg = event.raw_text.strip()
 
-    if not msg:
-        return
+    if not msg:
+        return
 
-    print(f"[Group] > {msg}")
+    print(f"[GroupChat] > {msg}")
 
-    # 10% chance diem (realistic)
-    if random.random() < 0.1:
-        return
+    reply = get_gemini_reply(str(ALLOWED_CHAT_ID), msg)
 
-    reply = get_gemini_reply(str(ALLOWED_CHAT_ID), msg)
-
-    if reply:
-
-        # human typing delay
-        delay = random.uniform(1.5, 4.5)
-        await asyncio.sleep(delay)
-
-        await event.reply(reply)
+    if reply:
+        await event.reply(reply)
 
 # =============================
 # RUN
 # =============================
 
-print("🔥 Ustadz Zai ULTRA HUMAN MODE aktif.")
+print("🤖 Ustadz Group AI aktif.")
 client.start()
 client.run_until_disconnected()
