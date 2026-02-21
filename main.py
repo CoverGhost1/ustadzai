@@ -16,7 +16,7 @@ api_hash = os.getenv("API_HASH")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
 # Gunakan model yang lebih kecil dan cepat
-MODEL_ID = "microsoft/DialoGPT-medium"  # Model chat yang lebih natural
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"  # Model chat yang lebih natural
 # Alternatif: "Qwen/Qwen2.5-7B-Instruct" atau "meta-llama/Llama-2-7b-chat-hf"
 ALLOWED_CHAT_ID = -1003123683403
 HISTORY_FILE = "group_history.json"
