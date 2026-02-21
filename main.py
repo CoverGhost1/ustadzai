@@ -11,76 +11,112 @@ from collections import deque
 
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
-groq_api_key = os.getenv("GROQ_KEY")
+google_api_key = os.getenv("GEMINI_KEY")
 
 ALLOWED_CHAT_ID = -1003123683403
 
-COOLDOWN = 6
-MAX_HISTORY = 60
+COOLDOWN = 5
+MAX_HISTORY = 6
 
 client = TelegramClient("anon_ai", api_id, api_hash)
 
 # =============================
-# USER IDENTITIES
+# MEMORY
 # =============================
 
-USER_IDENTITIES = {
-
-    "8229304441": {
-        "name": "Rifkyy",
-        "style": "cowok kalem, santai"
-    },
-
-    "6876331769": {
-        "name": "Adell",
-        "style": "cewek excited, ceria"
-    }
-
-}
-
-# =============================
-# MEMORY FILE
-# =============================
-
-HISTORY_FILE = "zai_memory_v5.json"
-
+HISTORY_FILE = "zai_memory.json"
 
 def load_history():
-
     if os.path.exists(HISTORY_FILE):
-
         try:
-
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-
-                data = json.load(f)
-
+            with open(HISTORY_FILE, "r") as f:
+                raw = json.load(f)
                 return {
-                    k: deque(v, maxlen=MAX_HISTORY)
-                    for k, v in data.items()
+                    str(k): deque(v, maxlen=MAX_HISTORY)
+                    for k, v in raw.items()
                 }
-
         except:
-
             return {}
-
     return {}
 
-
 def save_history():
-
     try:
-
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-
-            json.dump(chat_history, f, indent=2, ensure_ascii=False)
-
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(
+                {k: list(v) for k, v in chat_history.items()},
+                f,
+                indent=2
+            )
     except:
-
         pass
 
-
 chat_history = load_history()
+
+# =============================
+# PROMPT (SUPER PENDEK BIAR HEMAT)
+# =============================
+
+def build_prompt():
+    return (
+        "Kamu Ustadz Zai. "
+        "Ngobrol santai di grup. "
+        "Balas natural, singkat, gak formal, gak ceramah."
+    )
+
+# =============================
+# GEMINI REQUEST
+# =============================
+
+def get_gemini_reply(chat_id, user_msg):
+
+    user_msg = user_msg[:200]  # potong pesan panjang
+
+    history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
+    history.append(f"User: {user_msg}")
+    chat_history[chat_id] = history
+
+    conversation = "\n".join(history)
+
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {
+                        "text": build_prompt()
+                        + "\nChat:\n"
+                        + conversation
+                        + "\nBalas terakhir secara singkat:"
+                    }
+                ]
+            }
+        ],
+        "generationConfig": {
+            "maxOutputTokens": 80,
+            "temperature": 0.8
+        }
+    }
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={google_api_key}"
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        res = requests.post(url, headers=headers, data=json.dumps(body), timeout=20)
+        data = res.json()
+
+        if res.status_code == 200 and "candidates" in data:
+            reply = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+            history.append(f"AI: {reply}")
+            save_history()
+
+            return reply
+        else:
+            print("Gemini error:", data)
+            return None
+
+    except Exception as e:
+        print("Gemini exception:", e)
+        return None
 
 # =============================
 # COOLDOWN
@@ -88,257 +124,52 @@ chat_history = load_history()
 
 last_reply_time = 0
 
-
-def can_reply():
-
-    global last_reply_time
-
-    now = time.time()
-
-    if now - last_reply_time < COOLDOWN:
-        return False
-
-    last_reply_time = now
-
-    return True
-
-# =============================
-# GET USER NAME
-# =============================
-
-
-def get_user_name(user_id, fallback):
-
-    uid = str(user_id)
-
-    if uid in USER_IDENTITIES:
-        return USER_IDENTITIES[uid]["name"]
-
-    return fallback
-
-# =============================
-# SYSTEM PROMPT
-# =============================
-
-
-def build_system_prompt(user_name):
-
-    return f"""
-Kamu adalah Ustadz Zai.
-
-Kamu itu cowok tongkrongan, bukan AI, bukan asisten.
-
-Kamu lagi ngobrol santai di grup Telegram sama teman dekat, termasuk {user_name}.
-
-Gaya bicara kamu:
-
-- santai
-- natural
-- kayak manusia asli
-- kadang becanda ringan
-- gak formal
-- gak sopan berlebihan
-- gak ceramah
-- gak kayak customer service
-
-Contoh gaya respon yang BENAR:
-
-User: p
-Respon: apaan p doang wkwk
-
-User: zai
-Respon: iya kenapa
-
-User: lagi ngopi
-Respon: enak banget ngopi dimana
-
-Contoh yang SALAH:
-
-"Baik, ada yang bisa saya bantu?"
-"Saya siap membantu Anda."
-
-ATURAN KERAS:
-
-- jangan formal
-- jangan kaku
-- jangan halusinasi
-- jangan nebak hal yang gak ada
-- respon seperti manusia tongkrongan
-
-Balas secara natural.
-"""
-
-# =============================
-# BUILD MESSAGES
-# =============================
-
-
-def build_messages(chat_id, user_name, message):
-
-    if chat_id not in chat_history:
-
-        chat_history[chat_id] = deque(maxlen=MAX_HISTORY)
-
-    history = chat_history[chat_id]
-
-    messages = []
-
-    messages.append({
-        "role": "system",
-        "content": build_system_prompt(user_name)
-    })
-
-    messages.extend(history)
-
-    messages.append({
-        "role": "user",
-        "content": message
-    })
-
-    return messages
-
-# =============================
-# SAVE MEMORY
-# =============================
-
-
-def save_user(chat_id, message):
-
-    chat_history[chat_id].append({
-        "role": "user",
-        "content": message
-    })
-
-
-def save_ai(chat_id, reply):
-
-    chat_history[chat_id].append({
-        "role": "assistant",
-        "content": reply
-    })
-
-# =============================
-# AI REQUEST
-# =============================
-
-
-def get_ai_reply(chat_id, user_name, message):
-
-    messages = build_messages(chat_id, user_name, message)
-
-    url = "https://api.groq.com/openai/v1/chat/completions"
-
-    headers = {
-        "Authorization": f"Bearer {groq_api_key}",
-        "Content-Type": "application/json"
-    }
-
-    body = {
-
-        "model": "llama-3.1-8b-instant",
-
-        "messages": messages,
-
-        "temperature": 0.85,
-
-        "max_tokens": 120,
-
-        "presence_penalty": 0.3,
-
-        "frequency_penalty": 0.3
-
-    }
-
-    try:
-
-        res = requests.post(
-            url,
-            headers=headers,
-            json=body,
-            timeout=30
-        )
-
-        data = res.json()
-
-        if res.status_code == 200:
-
-            reply = data["choices"][0]["message"]["content"].strip()
-
-            save_user(chat_id, message)
-
-            save_ai(chat_id, reply)
-
-            save_history()
-
-            return reply
-
-        else:
-
-            print("AI ERROR:", data)
-
-            return None
-
-    except Exception as e:
-
-        print("REQUEST ERROR:", e)
-
-        return None
-
 # =============================
 # TELEGRAM HANDLER
 # =============================
 
-
 @client.on(events.NewMessage)
 async def handler(event):
 
-    try:
+    global last_reply_time
 
-        if event.chat_id != ALLOWED_CHAT_ID:
-            return
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
 
-        if event.out:
-            return
+    if event.out:
+        return
 
-        text = event.raw_text.strip()
+    msg = event.raw_text.strip()
 
-        if not text:
-            return
+    if not msg:
+        return
 
-        if not can_reply():
-            return
+    # ignore spam pendek
+    if len(msg) <= 1:
+        return
 
-        sender = await event.get_sender()
+    # hanya aktif kalau dipanggil
+    if "zai" not in msg.lower():
+        return
 
-        name = get_user_name(
-            sender.id,
-            sender.first_name or "User"
-        )
+    # cooldown
+    now = time.time()
+    if now - last_reply_time < COOLDOWN:
+        return
+    last_reply_time = now
 
-        print(f"{name}: {text}")
+    print("User:", msg)
 
-        reply = get_ai_reply(
-            str(ALLOWED_CHAT_ID),
-            name,
-            text
-        )
+    reply = get_gemini_reply(str(ALLOWED_CHAT_ID), msg)
 
-        if reply:
-
-            await event.reply(reply)
-
-            print("Zai:", reply)
-
-    except Exception as e:
-
-        print("HANDLER ERROR:", e)
+    if reply:
+        await event.reply(reply)
+        print("Zai:", reply)
 
 # =============================
 # START
 # =============================
 
-print("Ustadz Zai v5 aktif...")
-
+print("🔥 Ustadz Zai Hemat Mode Aktif")
 client.start()
-
 client.run_until_disconnected()
