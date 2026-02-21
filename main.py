@@ -1,14 +1,14 @@
 import os
 from telethon import TelegramClient, events
-from openai import OpenAI
 from collections import deque
 import json
+import requests
 
 # =============================
 # CONFIG
 # =============================
 api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")  # ✅ perbaikan: hapus tanda ')' ekstra
+api_hash = os.getenv("API_HASH")  # ✅ pastikan tidak ada tanda ')' ekstra
 HF_TOKEN = os.getenv("HF_TOKEN")
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 ALLOWED_CHAT_ID = -1003123683403
@@ -18,14 +18,6 @@ HISTORY_FILE = "group_history.json"
 # INIT TELEGRAM
 # =============================
 client = TelegramClient('anon_ai', api_id, api_hash)
-
-# =============================
-# INIT HF SDK (Router)
-# =============================
-hf_client = OpenAI(
-    base_url="https://router.huggingface.co/v1",
-    api_key=HF_TOKEN
-)
 
 # =============================
 # MEMORY SYSTEM
@@ -57,37 +49,40 @@ def build_system_prompt():
 Jawab natural, singkat, jangan bilang AI, gunakan emoji seperlunya."""
 
 # =============================
-# HF SDK HANDLER
+# HF COMPLETIONS HANDLER
 # =============================
 def get_hf_reply(chat_id, user_msg):
     history = chat_history.get(chat_id, deque(maxlen=10))
     history.append(f"User: {user_msg}")
 
-    # Bangun messages sesuai SDK
-    messages = [
-        {"role": "system", "content": build_system_prompt()},
-    ]
-    for msg in history:
-        if msg.startswith("User:"):
-            messages.append({"role": "user", "content": msg.replace("User: ","")})
-        elif msg.startswith("AI:"):
-            messages.append({"role": "assistant", "content": msg.replace("AI: ","")})
+    full_prompt = f"{build_system_prompt()}\n\n" + "\n".join(history) + "\nUstad Zai:"
 
-    messages.append({"role": "user", "content": user_msg})
+    url = f"https://router.huggingface.co/api/models/{MODEL_ID}/completions"
+    headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "inputs": full_prompt,
+        "parameters": {"max_new_tokens": 150, "temperature": 0.7, "return_full_text": False},
+        "options": {"wait_for_model": True}
+    }
 
     try:
-        completion = hf_client.chat.completions.create(
-            model=MODEL_ID,
-            messages=messages
-        )
-        reply_text = completion.choices[0].message.content.strip()
-        history.append(f"AI: {reply_text}")
-        chat_history[chat_id] = history
-        save_history(chat_history)
-        return reply_text
+        res = requests.post(url, headers=headers, json=payload)
+        if res.status_code == 200:
+            data = res.json()
+            # HF Completions API biasanya balikin text di data[0]['generated_text']
+            reply_text = data[0].get("generated_text", "").split("User:")[0].strip()
+            history.append(f"AI: {reply_text}")
+            chat_history[chat_id] = history
+            save_history(chat_history)
+            return reply_text
+        elif res.status_code == 503:
+            return "Bentar ya, lagi loading model... 🙏"
+        else:
+            print(f"❌ HF Error {res.status_code}: {res.text}")
+            return "Maaf, ada masalah dengan model. 🙏"
     except Exception as e:
         print("❌ HF exception:", e)
-        return "Maaf, ada masalah saat memproses pesanmu. 🙏"
+        return "Maaf, terjadi error saat memproses pesanmu. 🙏"
 
 # =============================
 # TELEGRAM HANDLER
@@ -112,6 +107,6 @@ async def handle_group(event):
 # =============================
 # RUN
 # =============================
-print(f"🤖 Ustadz AI (HF SDK Router) aktif menggunakan model: {MODEL_ID}")
+print(f"🤖 Ustadz AI (Mistral Instruct) aktif menggunakan model: {MODEL_ID}")
 client.start()
 client.run_until_disconnected()
