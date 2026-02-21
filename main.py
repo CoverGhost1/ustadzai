@@ -8,7 +8,7 @@ import requests
 # CONFIG
 # =============================
 api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH")  # ✅ pastikan tidak ada tanda ')' ekstra
+api_hash = os.getenv("API_HASH")  # ✅ perbaikan syntax
 HF_TOKEN = os.getenv("HF_TOKEN")
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 ALLOWED_CHAT_ID = -1003123683403
@@ -57,7 +57,8 @@ def get_hf_reply(chat_id, user_msg):
 
     full_prompt = f"{build_system_prompt()}\n\n" + "\n".join(history) + "\nUstad Zai:"
 
-    url = f"https://router.huggingface.co/api/models/{MODEL_ID}/completions"
+    # ✅ URL HF Router Completions endpoint yang benar
+    url = f"https://api-inference.huggingface.co/v1/engines/{MODEL_ID}/completions"
     headers = {"Authorization": f"Bearer {HF_TOKEN}", "Content-Type": "application/json"}
     payload = {
         "inputs": full_prompt,
@@ -69,7 +70,6 @@ def get_hf_reply(chat_id, user_msg):
         res = requests.post(url, headers=headers, json=payload)
         if res.status_code == 200:
             data = res.json()
-            # HF Completions API biasanya balikin text di data[0]['generated_text']
             reply_text = data[0].get("generated_text", "").split("User:")[0].strip()
             history.append(f"AI: {reply_text}")
             chat_history[chat_id] = history
