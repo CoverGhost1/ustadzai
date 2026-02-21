@@ -31,6 +31,11 @@ hf_client = InferenceClient(
 )
 
 # =============================
+# BOT STATE
+# =============================
+bot_active = False  # Menyimpan status bot (aktif/tidak)
+
+# =============================
 # MEMORY SYSTEM
 # =============================
 def load_history():
@@ -65,6 +70,56 @@ Kadang plenger, bercanda ringan, tapi tetap islami.
 Gunakan bahasa sehari-hari, emoji seperlunya, dan gaya ngobrol santai.
 Jawab singkat tapi jelas, bisa kasih motivasi, nasehat, atau info islami.
 Jangan sebut kalau kamu AI, jangan terlalu formal."""
+
+# =============================
+# COMMAND HANDLERS
+# =============================
+@client.on(events.NewMessage(pattern='/mulai'))
+async def start_bot(event):
+    global bot_active
+    if event.chat_id != ALLOWED_CHAT_ID or event.out:
+        return
+    
+    bot_active = True
+    await event.reply("✅ **Ustad Zai aktif!**\n\nAku siap bantu jawab pertanyaan-pertanyaan seputar Islam, ngobrol santai, atau kasih nasehat. Silakan tanya apa aja! 🤗")
+    print(f"Bot started by {event.sender_id}")
+
+@client.on(events.NewMessage(pattern='/setop'))
+async def stop_bot(event):
+    global bot_active
+    if event.chat_id != ALLOWED_CHAT_ID or event.out:
+        return
+    
+    bot_active = False
+    await event.reply("⏸️ **Ustad Zai sedang istirahat dulu**\n\nKalau butuh lagi, ketik /mulai ya. Sampai jumpa! 👋")
+    print(f"Bot stopped by {event.sender_id}")
+
+# =============================
+# HELP COMMAND (optional)
+# =============================
+@client.on(events.NewMessage(pattern='/help'))
+async def help_command(event):
+    if event.chat_id != ALLOWED_CHAT_ID or event.out:
+        return
+    
+    help_text = """**🕌 Command Ustad Zai:**
+
+/mulai - Mengaktifkan bot untuk merespon pesan
+/setop - Menonaktifkan bot (berhenti merespon)
+/help - Menampilkan pesan bantuan ini
+
+**📝 Cara Penggunaan:**
+Setelah mengetik /mulai, bot akan otomatis merespon setiap pesan yang masuk di grup ini.
+
+**💡 Tips:**
+- Bot bisa diajak ngobrol santai seputar Islam
+- Punya memori 10 pesan terakhir untuk konteks percakapan
+- Jawaban singkat, jelas, dan gaul
+
+Ada yang bisa saya bantu? 😊"""
+    
+    await event.reply(help_text)
+
 # =============================
 # HF CHAT HANDLER
 # =============================
@@ -121,8 +176,18 @@ def get_hf_reply(chat_id, user_msg):
 # =============================
 @client.on(events.NewMessage)
 async def handle_group(event):
+    global bot_active
+    
     # Check if it's the allowed chat and not a message from the bot itself
     if event.chat_id != ALLOWED_CHAT_ID or event.out:
+        return
+
+    # Skip if it's a command (starts with /)
+    if event.raw_text.startswith('/'):
+        return
+
+    # Only respond if bot is active
+    if not bot_active:
         return
 
     msg = event.raw_text.strip()
@@ -149,6 +214,7 @@ async def main():
     await client.start()
     print(f"🤖 Ustadz AI aktif menggunakan model: {MODEL_ID}")
     print(f"✅ Hanya merespon di chat ID: {ALLOWED_CHAT_ID}")
+    print(f"📝 Bot dalam keadaan OFF. Ketik /mulai untuk mengaktifkan")
     await client.run_until_disconnected()
 
 # =============================
