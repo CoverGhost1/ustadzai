@@ -24,7 +24,7 @@ ALLOWED_CHAT_ID = -1003123683403
 # INIT TELETHON
 # =============================
 
-client = TelegramClient('ustadz_ai_hf', api_id, api_hash)
+client = TelegramClient('anon_ai', api_id, api_hash)
 
 # =============================
 # MEMORY SYSTEM
