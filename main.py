@@ -18,7 +18,7 @@ ALLOWED_CHAT_ID = -1003123683403
 COOLDOWN = 8
 MAX_HISTORY = 200
 
-client = TelegramClient("ustadz_zai_v4", api_id, api_hash)
+client = TelegramClient("anon_ai", api_id, api_hash)
 
 # =============================
 # USER IDENTITIES
