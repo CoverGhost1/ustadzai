@@ -2,174 +2,135 @@ from telethon import TelegramClient, events
 import requests
 import json
 import os
-import time
 from collections import deque
 
 # =============================
-# CONFIG
+# CONFIG (PAKAI ENV VARIABLE)
 # =============================
 
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
-google_api_key = os.getenv("GEMINI_KEY")
 
-ALLOWED_CHAT_ID = -1003123683403
+# GANTI INI: Token Hugging Face (dapat di hf.co/settings/tokens)
+HF_TOKEN = os.getenv("HF_TOKEN") 
 
-COOLDOWN = 5
-MAX_HISTORY = 6
+# MODEL PILIHAN (Bisa diganti Llama-3 atau Mistral)
+# Contoh: "meta-llama/Meta-Llama-3-8B-Instruct" atau "mistralai/Mistral-7B-Instruct-v0.2"
+MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 
-client = TelegramClient("anon_ai", api_id, api_hash)
+ALLOWED_CHAT_ID = -1003123683403  
 
 # =============================
-# MEMORY
+# INIT TELETHON
 # =============================
 
-HISTORY_FILE = "zai_memory.json"
+client = TelegramClient('ustadz_ai_hf', api_id, api_hash)
+
+# =============================
+# MEMORY SYSTEM
+# =============================
+
+HISTORY_FILE = "group_history.json"
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r") as f:
                 raw = json.load(f)
-                return {
-                    str(k): deque(v, maxlen=MAX_HISTORY)
-                    for k, v in raw.items()
-                }
+                return {str(k): deque(v, maxlen=10) for k, v in raw.items()}
         except:
             return {}
     return {}
 
-def save_history():
+def save_history(chat_history):
     try:
         with open(HISTORY_FILE, "w") as f:
-            json.dump(
-                {k: list(v) for k, v in chat_history.items()},
-                f,
-                indent=2
-            )
+            json.dump({str(k): list(v) for k, v in chat_history.items()}, f, indent=2)
     except:
         pass
 
 chat_history = load_history()
 
 # =============================
-# PROMPT (SUPER PENDEK BIAR HEMAT)
+# PROMPT BUILDER
 # =============================
 
-def build_prompt():
-    return (
-        "Kamu Ustadz Zai. "
-        "Ngobrol santai di grup. "
-        "Balas natural, singkat, gak formal, gak ceramah."
-    )
+def build_system_prompt():
+    return """Kamu adalah ustadz muda bernama ustad zai. Kamu lagi nongkrong di grup Telegram.
+Karakter: Santai, humble, hangat, gak kaku, gaya bahasa anak muda tapi tetap sopan (Ramadan vibes).
+Tugas: Tanggapi obrolan dengan singkat, natural, dan jangan bilang kamu AI. Gunakan emoji seperlunya."""
 
 # =============================
-# GEMINI REQUEST
+# HUGGING FACE HANDLER
 # =============================
 
-def get_gemini_reply(chat_id, user_msg):
-
-    user_msg = user_msg[:200]  # potong pesan panjang
-
-    history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
+def get_hf_reply(chat_id, user_msg):
+    history = chat_history.get(chat_id, deque(maxlen=10))
     history.append(f"User: {user_msg}")
-    chat_history[chat_id] = history
+    
+    # Format Prompt sesuai standar chat model di Hugging Face
+    full_context = f"{build_system_prompt()}\n\n"
+    for msg in history:
+        full_context += f"{msg}\n"
+    full_context += "Ustad Zai:"
 
-    conversation = "\n".join(history)
-
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": build_prompt()
-                        + "\nChat:\n"
-                        + conversation
-                        + "\nBalas terakhir secara singkat:"
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "maxOutputTokens": 80,
-            "temperature": 0.8
+    url = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
+    headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+    
+    payload = {
+        "inputs": full_context,
+        "parameters": {
+            "max_new_tokens": 250,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "return_full_text": False
         }
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={google_api_key}"
-    headers = {"Content-Type": "application/json"}
-
     try:
-        res = requests.post(url, headers=headers, data=json.dumps(body), timeout=20)
+        res = requests.post(url, headers=headers, json=payload)
         data = res.json()
 
-        if res.status_code == 200 and "candidates" in data:
-            reply = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-
-            history.append(f"AI: {reply}")
-            save_history()
-
-            return reply
+        if res.status_code == 200:
+            # HF mengembalikan list, ambil teks dari index 0
+            reply_text = data[0]['generated_text'].split("User:")[0].strip()
+            history.append(f"AI: {reply_text}")
+            chat_history[chat_id] = history
+            save_history(chat_history)
+            return reply_text
         else:
-            print("Gemini error:", data)
-            return None
-
+            print("❌ HF error:", data)
+            return "Waduh, lagi agak loading nih otak saya... 🙏"
     except Exception as e:
-        print("Gemini exception:", e)
+        print("❌ HF exception:", e)
         return None
 
 # =============================
-# COOLDOWN
-# =============================
-
-last_reply_time = 0
-
-# =============================
-# TELEGRAM HANDLER
+# MAIN GROUP HANDLER
 # =============================
 
 @client.on(events.NewMessage)
-async def handler(event):
-
-    global last_reply_time
-
-    if event.chat_id != ALLOWED_CHAT_ID:
-        return
-
-    if event.out:
+async def handle_group(event):
+    if event.chat_id != ALLOWED_CHAT_ID or event.out:
         return
 
     msg = event.raw_text.strip()
-
     if not msg:
         return
 
-    # ignore spam pendek
-    if len(msg) <= 1:
-        return
+    print(f"[GroupChat] > {msg}")
 
-    # hanya aktif kalau dipanggil
-    if "zai" not in msg.lower():
-        return
-
-    # cooldown
-    now = time.time()
-    if now - last_reply_time < COOLDOWN:
-        return
-    last_reply_time = now
-
-    print("User:", msg)
-
-    reply = get_gemini_reply(str(ALLOWED_CHAT_ID), msg)
+    # Kirim status "typing" biar lebih natural
+    async with client.action(event.chat_id, 'typing'):
+        reply = get_hf_reply(str(ALLOWED_CHAT_ID), msg)
 
     if reply:
         await event.reply(reply)
-        print("Zai:", reply)
 
 # =============================
-# START
+# RUN
 # =============================
 
-print("🔥 Ustadz Zai Hemat Mode Aktif")
+print(f"🤖 Ustadz AI (HF Version) aktif menggunakan model: {MODEL_ID}")
 client.start()
 client.run_until_disconnected()
