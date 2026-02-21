@@ -6,7 +6,7 @@ const bot = new TelegramBot(process.env.TG_TOKEN, {
   polling: true,
 });
 
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_KEY}`;
 
 let activeChats = {};
 let memory = {};
