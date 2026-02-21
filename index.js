@@ -12,14 +12,14 @@ let activeChats = {};
 let memory = {};
 const MAX_MEMORY = 6;
 
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/zstart/, (msg) => {
   const chatId = msg.chat.id;
   activeChats[chatId] = true;
 
   bot.sendMessage(chatId, "Assalamu'alaikum 🤍 Ustadz Zai siap menemani.");
 });
 
-bot.onText(/\/stop/, (msg) => {
+bot.onText(/\/zstop/, (msg) => {
   const chatId = msg.chat.id;
   activeChats[chatId] = false;
 
