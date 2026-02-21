@@ -65,17 +65,22 @@ Tugas: Tanggapi obrolan dengan singkat, natural, dan jangan bilang kamu AI. Guna
 # =============================
 
 def get_hf_reply(chat_id, user_msg):
+    """
+    Mengirim prompt ke Hugging Face Router API (Mistral-7B-Instruct)
+    dan mengambil balasan AI. History chat disimpan untuk konteks.
+    """
+    # Ambil history chat atau buat baru
     history = chat_history.get(chat_id, deque(maxlen=10))
     history.append(f"User: {user_msg}")
 
-    # Format prompt
+    # Bangun prompt lengkap
     full_context = f"{build_system_prompt()}\n\n"
     for msg in history:
         full_context += f"{msg}\n"
     full_context += "Ustad Zai:"
 
-    # URL Router terbaru Hugging Face
-    url = "https://router.huggingface.co/api/models/" + MODEL_ID
+    # Endpoint Router HF terbaru (Completions API)
+    url = f"https://api-inference.huggingface.co/v1/engines/{MODEL_ID}/completions"
 
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
@@ -90,23 +95,31 @@ def get_hf_reply(chat_id, user_msg):
             "return_full_text": False
         },
         "options": {
-            "wait_for_model": True
+            "wait_for_model": True  # Supaya gak error pas model lagi loading
         }
     }
 
     try:
-        res = requests.post(url, headers=headers, json=payload)
+        # Request via session
+        res = session.post(url, headers=headers, json=payload)
 
         if res.status_code == 200:
             data = res.json()
-            # Router API kadang balikin list di 'generated_text' atau di dict 'generated_text'
-            reply_text = data[0]['generated_text'].split("User:")[0].strip()
+            # Router Completions API biasanya balikin text di 'generated_text'
+            if "generated_text" in data[0]:
+                reply_text = data[0]['generated_text'].split("User:")[0].strip()
+            else:
+                # fallback jika struktur berbeda
+                reply_text = str(data).strip()
+            
+            # Simpan history
             history.append(f"AI: {reply_text}")
             chat_history[chat_id] = history
             save_history(chat_history)
             return reply_text
+
         elif res.status_code == 503:
-            return "Bentar ya, lagi loading bentar memorinya... Coba chat lagi sedetik lagi. 🙏"
+            return "Bentar ya, lagi loading memorinya... Coba chat lagi sebentar. 🙏"
         else:
             print(f"❌ Error {res.status_code}: {res.text}")
             return None
