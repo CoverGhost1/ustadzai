@@ -212,7 +212,7 @@ def get_ai_reply(chat_id, user_name, message):
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
-        "Authorization": f"Bearer {groq_api_key},
+        "Authorization": f"Bearer {groq_api_key}",
         "Content-Type": "application/json"
     }
 
