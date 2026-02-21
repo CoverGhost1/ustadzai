@@ -8,7 +8,7 @@ import json
 # CONFIG
 # =============================
 api_id = int(os.getenv("API_ID"))
-api_hash = os.getenv("API_HASH"))
+api_hash = os.getenv("API_HASH")  # ✅ perbaikan: hapus tanda ')' ekstra
 HF_TOKEN = os.getenv("HF_TOKEN")
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.3"
 ALLOWED_CHAT_ID = -1003123683403
