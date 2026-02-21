@@ -15,10 +15,10 @@ groq_api_key = os.getenv("GROQ_KEY")
 
 ALLOWED_CHAT_ID = -1003123683403
 
-COOLDOWN = 10
-MAX_HISTORY = 10000
+COOLDOWN = 8
+MAX_HISTORY = 200
 
-client = TelegramClient("anon_ai", api_id, api_hash)
+client = TelegramClient("ustadz_zai_v4", api_id, api_hash)
 
 # =============================
 # USER IDENTITIES
@@ -41,10 +41,11 @@ USER_IDENTITIES = {
 }
 
 # =============================
-# MEMORY SYSTEM
+# MEMORY FILE
 # =============================
 
-HISTORY_FILE = "group_history.json"
+HISTORY_FILE = "zai_memory.json"
+
 
 def load_history():
 
@@ -54,11 +55,11 @@ def load_history():
 
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
 
-                raw = json.load(f)
+                data = json.load(f)
 
                 return {
-                    str(k): deque(v, maxlen=MAX_HISTORY)
-                    for k, v in raw.items()
+                    k: deque(v, maxlen=MAX_HISTORY)
+                    for k, v in data.items()
                 }
 
         except:
@@ -67,30 +68,28 @@ def load_history():
 
     return {}
 
+
 def save_history():
 
     try:
 
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
 
-            json.dump(
-                {str(k): list(v) for k, v in chat_history.items()},
-                f,
-                indent=2,
-                ensure_ascii=False
-            )
+            json.dump(chat_history, f, indent=2, ensure_ascii=False)
 
     except:
 
         pass
 
+
 chat_history = load_history()
 
 # =============================
-# COOLDOWN
+# COOLDOWN SYSTEM
 # =============================
 
 last_reply_time = 0
+
 
 def can_reply():
 
@@ -106,90 +105,140 @@ def can_reply():
     return True
 
 # =============================
-# GET USER IDENTITY
+# USER NAME
 # =============================
 
-def get_user_identity(user_id, fallback_name):
 
-    user_id = str(user_id)
+def get_user_identity(user_id, fallback):
 
-    if user_id in USER_IDENTITIES:
+    uid = str(user_id)
 
-        identity = USER_IDENTITIES[user_id]
+    if uid in USER_IDENTITIES:
 
-        return f"{identity['name']} ({identity['role']})"
+        return USER_IDENTITIES[uid]["name"]
 
-    return fallback_name
+    return fallback
 
 # =============================
-# BUILD RELATION TEXT
+# RELATION TEXT
 # =============================
+
 
 def build_relation_text():
 
-    text = "\nHubungan anggota grup:\n"
+    text = ""
 
     for uid, data in USER_IDENTITIES.items():
 
-        text += f"- {data['name']} adalah {data['relation']}\n"
+        text += f"{data['name']} adalah {data['relation']}.\n"
 
     return text
 
 # =============================
-# PERSONALITY PROMPT
+# SYSTEM PROMPT (SUPER STRONG)
 # =============================
 
-def build_prompt():
+
+def build_system_prompt():
+
     return f"""
 Kamu adalah Ustadz Zai.
 
-Kamu lagi nongkrong santai di grup Telegram bareng teman dekat.
-Bukan ceramah. Bukan formal. Bukan robot.
+Identitas:
+- cowok santai
+- ngobrol natural
+- hangat
+- tidak formal
+- tidak kaku
+- bukan AI
+- seperti teman nongkrong lama
 
-Kepribadian:
-- Hangat
-- Santai
-- Natural
-- Ada sedikit bercanda
-- Tidak lebay
-- Tidak terlalu banyak ketawa
-- Punya pendirian
+Gaya bicara:
+- santai
+- natural
+- manusia banget
+- kadang bercanda ringan
+- tidak ceramah
+- tidak terlalu panjang
+- tidak terlalu pendek
 
 Relasi grup:
 {build_relation_text()}
+
+Rules penting:
+- balas seperti manusia asli
+- jangan kaku
+- jangan formal
+- jangan ceramah kecuali diminta
+- jangan menjelaskan kamu AI
+- fokus balas pesan terakhir
 """
+
 # =============================
-# BUILD CONVERSATION
+# BUILD MESSAGE ARRAY
 # =============================
 
-def build_conversation(chat_id):
 
-    history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
+def build_messages(chat_id, user_name, message):
 
-    return "\n".join(history)[-6000:]
+    if chat_id not in chat_history:
+
+        chat_history[chat_id] = deque(maxlen=MAX_HISTORY)
+
+    history = chat_history[chat_id]
+
+    messages = []
+
+    messages.append({
+        "role": "system",
+        "content": build_system_prompt()
+    })
+
+    messages.extend(history)
+
+    messages.append({
+        "role": "user",
+        "content": f"{user_name}: {message}"
+    })
+
+    return messages
+
+# =============================
+# SAVE USER MESSAGE
+# =============================
+
+
+def save_user_message(chat_id, user_name, message):
+
+    chat_history[chat_id].append({
+        "role": "user",
+        "content": f"{user_name}: {message}"
+    })
+
+    save_history()
+
+# =============================
+# SAVE AI MESSAGE
+# =============================
+
+
+def save_ai_message(chat_id, reply):
+
+    chat_history[chat_id].append({
+        "role": "assistant",
+        "content": reply
+    })
+
+    save_history()
 
 # =============================
 # AI REQUEST
 # =============================
 
-def get_ai_reply(chat_id, user_id, user_name, message):
 
-    history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
+def get_ai_reply(chat_id, user_name, message):
 
-    history.append(f"{user_name}: {message}")
-
-    chat_history[chat_id] = history
-
-    save_history()
-
-    conversation = build_conversation(chat_id)
-
-    prompt = (
-        build_prompt()
-        + "\n\nPercakapan:\n"
-        + conversation
-        + "\n\nBalas pesan terakhir secara natural:"
-    )
+    messages = build_messages(chat_id, user_name, message)
 
     url = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -199,23 +248,19 @@ def get_ai_reply(chat_id, user_id, user_name, message):
     }
 
     body = {
+
         "model": "llama-3.1-8b-instant",
-        "messages": [
-            {
-                "role": "system",
-                "content": "Kamu adalah manusia."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        "temperature": 0.85,
-        "max_tokens": 100,
-        "presence_penalty": 0.25,
-        "frequency_penalty": 0.15,
-        "stop": ["\nUser:", "\n\nUser:", "\nAI:", "\n\nAI:"]
-        
+
+        "messages": messages,
+
+        "temperature": 0.95,
+
+        "max_tokens": 120,
+
+        "presence_penalty": 0.6,
+
+        "frequency_penalty": 0.4
+
     }
 
     try:
@@ -233,27 +278,28 @@ def get_ai_reply(chat_id, user_id, user_name, message):
 
             reply = data["choices"][0]["message"]["content"].strip()
 
-            history.append(f"Ustadz Zai: {reply}")
+            save_user_message(chat_id, user_name, message)
 
-            save_history()
+            save_ai_message(chat_id, reply)
 
             return reply
 
         else:
 
-            print("AI Error:", data)
+            print("AI ERROR:", data)
 
             return None
 
     except Exception as e:
 
-        print("Exception:", e)
+        print("REQUEST ERROR:", e)
 
         return None
 
 # =============================
 # TELEGRAM HANDLER
 # =============================
+
 
 @client.on(events.NewMessage)
 async def handler(event):
@@ -276,8 +322,6 @@ async def handler(event):
 
         sender = await event.get_sender()
 
-        print("USER ID:", sender.id)
-
         name = get_user_identity(
             sender.id,
             sender.first_name or "User"
@@ -287,7 +331,6 @@ async def handler(event):
 
         reply = get_ai_reply(
             str(ALLOWED_CHAT_ID),
-            str(sender.id),
             name,
             text
         )
@@ -300,13 +343,13 @@ async def handler(event):
 
     except Exception as e:
 
-        print("Handler error:", e)
+        print("HANDLER ERROR:", e)
 
 # =============================
 # START
 # =============================
 
-print("Ustadz Zai AI v3 aktif...")
+print("Ustadz Zai AI v4 aktif...")
 
 client.start()
 
