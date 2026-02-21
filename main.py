@@ -67,22 +67,21 @@ Tugas: Tanggapi obrolan dengan singkat, natural, dan jangan bilang kamu AI. Guna
 def get_hf_reply(chat_id, user_msg):
     history = chat_history.get(chat_id, deque(maxlen=10))
     history.append(f"User: {user_msg}")
-    
-    # Format prompt yang lebih bersih
+
+    # Format prompt
     full_context = f"{build_system_prompt()}\n\n"
     for msg in history:
         full_context += f"{msg}\n"
     full_context += "Ustad Zai:"
 
-    # URL ROUTER TERBARU
-    url = f"https://api-inference.huggingface.co/models/{MODEL_ID}"
-    
-    # Headers
+    # URL Router terbaru Hugging Face
+    url = "https://router.huggingface.co/api/models/" + MODEL_ID
+
     headers = {
         "Authorization": f"Bearer {HF_TOKEN}",
         "Content-Type": "application/json"
     }
-    
+
     payload = {
         "inputs": full_context,
         "parameters": {
@@ -91,16 +90,16 @@ def get_hf_reply(chat_id, user_msg):
             "return_full_text": False
         },
         "options": {
-            "wait_for_model": True  # PENTING: Supaya gak error pas model lagi loading
+            "wait_for_model": True
         }
     }
 
     try:
         res = requests.post(url, headers=headers, json=payload)
-        
-        # Cek status code sebelum di .json()
+
         if res.status_code == 200:
             data = res.json()
+            # Router API kadang balikin list di 'generated_text' atau di dict 'generated_text'
             reply_text = data[0]['generated_text'].split("User:")[0].strip()
             history.append(f"AI: {reply_text}")
             chat_history[chat_id] = history
@@ -111,7 +110,7 @@ def get_hf_reply(chat_id, user_msg):
         else:
             print(f"❌ Error {res.status_code}: {res.text}")
             return None
-            
+
     except Exception as e:
         print("❌ HF exception:", e)
         return None
