@@ -107,7 +107,7 @@ def get_gemini_reply(chat_id, user_msg):
         ]
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={google_api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key={google_api_key}"
     headers = {"Content-Type": "application/json"}
 
     try:
