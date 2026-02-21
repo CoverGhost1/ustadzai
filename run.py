@@ -19,7 +19,7 @@ ALLOWED_CHAT_ID = -1003123683403  # <-- GANTI INI
 # INIT TELETHON
 # =============================
 
-client = TelegramClient('anon_ai', api_id, api_hash)
+client = TelegramClient('ustadz_ultra', api_id, api_hash)
 
 # =============================
 # MEMORY SYSTEM
