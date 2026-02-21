@@ -13,7 +13,7 @@ api_hash = os.getenv("API_HASH")
 google_api_key = os.getenv("GEMINI_KEY")
 
 # GANTI DENGAN CHAT ID GRUP LU
-ALLOWED_CHAT_ID = -1003123683403  # <-- GANTI INI
+ALLOWED_CHAT_ID = -1003123683403
 
 # =============================
 # INIT TELETHON
