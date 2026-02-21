@@ -257,9 +257,12 @@ def get_ai_reply(chat_id, user_id, user_name, message):
                 "content": prompt
             }
         ],
-        "temperature": 0.9,
-        "max_tokens": 60,
-        "presence_penalty": 0.5
+        "temperature": 0.85,
+        "max_tokens": 100,
+        "presence_penalty": 0.25,
+        "frequency_penalty": 0.15,
+        "stop": ["\nUser:", "\n\nUser:", "\nAI:", "\n\nAI:"]
+        
     }
 
     try:
