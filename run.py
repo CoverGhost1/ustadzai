@@ -2,24 +2,31 @@ from telethon import TelegramClient, events
 import requests
 import json
 import os
+import time
 from collections import deque
 
 # =============================
-# CONFIG (PAKAI ENV VARIABLE)
+# CONFIG (ENV)
 # =============================
 
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
-google_api_key = os.getenv("GEMINI_KEY")
+groq_api_key = os.getenv("GROQ_KEY")
 
 # GANTI DENGAN CHAT ID GRUP LU
-ALLOWED_CHAT_ID = -1003123683403  # <-- GANTI INI
+ALLOWED_CHAT_ID = -1003123683403
+
+# COOLDOWN (detik)
+COOLDOWN = 5
+
+# MAX MEMORY
+MAX_HISTORY = 10
 
 # =============================
 # INIT TELETHON
 # =============================
 
-client = TelegramClient('anon_ai', api_id, api_hash)
+client = TelegramClient("anon_ai", api_id, api_hash)
 
 # =============================
 # MEMORY SYSTEM
@@ -33,7 +40,7 @@ def load_history():
             with open(HISTORY_FILE, "r") as f:
                 raw = json.load(f)
                 return {
-                    str(k): deque(v, maxlen=10)
+                    str(k): deque(v, maxlen=MAX_HISTORY)
                     for k, v in raw.items()
                 }
         except:
@@ -53,20 +60,37 @@ def save_history():
 chat_history = load_history()
 
 # =============================
-# PROMPT BUILDER
+# COOLDOWN SYSTEM
+# =============================
+
+last_reply_time = 0
+
+def can_reply():
+    global last_reply_time
+    now = time.time()
+
+    if now - last_reply_time < COOLDOWN:
+        return False
+
+    last_reply_time = now
+    return True
+
+# =============================
+# CHARACTER PROMPT
 # =============================
 
 def build_prompt():
     return """
-Kamu adalah ustadz muda bernama ustad zai yang nongkrong bareng 2 orang di grup Telegram.
+Kamu adalah ustadz muda bernama ustadz zai yang nongkrong bareng 2 orang di grup Telegram.
 
 Karakter:
 - Santai dan humble
 - Hangat dan tidak menghakimi
 - Bisa bercanda ringan
 - Ramadan vibes
-- Jangan terlalu panjang
 - Natural seperti teman ketiga
+- Jangan terlalu panjang
+- Jangan terlalu formal
 - Jangan bilang kamu AI
 - Pakai emoji ringan seperlunya 😌😂
 
@@ -74,89 +98,135 @@ Aturan:
 - Kalau ada curhat → jawab hangat dan menenangkan
 - Kalau ada bercanda → ikut bercanda
 - Kalau ada overthinking → tenangkan
-- Jangan terlalu formal
+- Kalau ditanya → jawab jelas tapi santai
 - Jangan jawab panjang banget
 
-Langsung tanggapi isi obrolan.
+Langsung tanggapi pesan terakhir secara natural.
 """
 
 # =============================
-# GEMINI HANDLER
+# GROQ AI HANDLER
 # =============================
 
-def get_gemini_reply(chat_id, user_msg):
-    history = chat_history.get(chat_id, deque(maxlen=10))
+def get_ai_reply(chat_id, user_msg):
+
+    history = chat_history.get(chat_id, deque(maxlen=MAX_HISTORY))
+
     history.append(f"User: {user_msg}")
+
     chat_history[chat_id] = history
+
     save_history()
 
     conversation = "\n".join(history)[-4000:]
 
-    body = {
-        "contents": [
-            {
-                "parts": [
-                    {
-                        "text": build_prompt() +
-                        "\n\nBerikut percakapan:\n" +
-                        conversation +
-                        "\nBalas pesan terakhir:"
-                    }
-                ]
-            }
-        ]
+    prompt = (
+        build_prompt()
+        + "\n\nPercakapan:\n"
+        + conversation
+        + "\n\nBalas pesan terakhir:"
+    )
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {groq_api_key}",
+        "Content-Type": "application/json"
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={google_api_key}"
-    headers = {"Content-Type": "application/json"}
+    body = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {
+                "role": "user",
+                "content": prompt
+            }
+        ],
+        "temperature": 0.7,
+        "max_tokens": 500
+    }
 
     try:
-        res = requests.post(url, headers=headers, data=json.dumps(body))
+
+        res = requests.post(
+            url,
+            headers=headers,
+            json=body,
+            timeout=30
+        )
+
         data = res.json()
 
-        if res.status_code == 200 and "candidates" in data and data["candidates"]:
-            reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
+        if res.status_code == 200:
+
+            reply_text = data["choices"][0]["message"]["content"]
+
             history.append(f"AI: {reply_text}")
+
             save_history()
+
             return reply_text.strip()
+
         else:
-            print("❌ Gemini error:", data)
+
+            print("❌ Groq API Error:")
+            print(data)
+
             return None
+
     except Exception as e:
-        print("❌ Gemini exception:", e)
+
+        print("❌ Groq Exception:", e)
+
         return None
 
+
 # =============================
-# MAIN GROUP HANDLER
+# TELEGRAM HANDLER
 # =============================
 
 @client.on(events.NewMessage)
+
 async def handle_group(event):
 
-    # HANYA AKTIF DI GRUP TERTENTU
-    if event.chat_id != ALLOWED_CHAT_ID:
-        return
+    try:
 
-    # Jangan balas pesan sendiri
-    if event.out:
-        return
+        if event.chat_id != ALLOWED_CHAT_ID:
+            return
 
-    msg = event.raw_text.strip()
+        if event.out:
+            return
 
-    if not msg:
-        return
+        msg = event.raw_text.strip()
 
-    print(f"[GroupChat] > {msg}")
+        if not msg:
+            return
 
-    reply = get_gemini_reply(str(ALLOWED_CHAT_ID), msg)
+        # Anti spam cooldown
+        if not can_reply():
+            return
 
-    if reply:
-        await event.reply(reply)
+        print(f"[GroupChat] > {msg}")
+
+        reply = get_ai_reply(str(ALLOWED_CHAT_ID), msg)
+
+        if reply:
+
+            await event.reply(reply)
+
+            print(f"[AI Reply] > {reply}")
+
+    except Exception as e:
+
+        print("❌ Handler Error:", e)
+
 
 # =============================
-# RUN
+# START BOT
 # =============================
 
-print("🤖 Ustadz Group AI aktif.")
+print("🤖 Ustadz Zai AI aktif (Groq mode)")
+
 client.start()
+
 client.run_until_disconnected()
