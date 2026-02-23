@@ -97,14 +97,33 @@ CREATE TABLE IF NOT EXISTS settings (
 )
 """)
 
+# Tabel untuk bot status (ON/OFF)
+cur.execute("""
+CREATE TABLE IF NOT EXISTS bot_status (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    auto_reply BOOLEAN DEFAULT FALSE,
+    updated_by TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
 # Insert default settings
 cur.execute("""
 INSERT INTO settings (key, value) VALUES 
 ('current_token_index', '0'),
 ('max_history', '30'),
 ('max_response_tokens', '150'),
-('temperature', '0.7')
+('temperature', '0.7'),
+('auto_reply_mode', 'true')  -- true = semua pesan, false = hanya dengan trigger
 ON CONFLICT (key) DO NOTHING
+""")
+
+# Insert default bot status
+cur.execute("""
+INSERT INTO bot_status (id, is_active, auto_reply) 
+VALUES (1, TRUE, FALSE)
+ON CONFLICT (id) DO NOTHING
 """)
 
 conn.commit()
@@ -121,6 +140,47 @@ def load_tokens_from_db():
 
 # Initial load
 HF_TOKENS = load_tokens_from_db()
+
+# =============================
+# BOT STATUS FUNCTIONS
+# =============================
+
+def get_bot_status():
+    """Get current bot status"""
+    cur.execute("SELECT is_active, auto_reply FROM bot_status WHERE id = 1")
+    row = cur.fetchone()
+    if row:
+        return {"is_active": row[0], "auto_reply": row[1]}
+    return {"is_active": True, "auto_reply": False}
+
+def set_bot_active(active, updated_by):
+    """Set bot active status"""
+    cur.execute("""
+        UPDATE bot_status 
+        SET is_active = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = 1
+    """, (active, str(updated_by)))
+    conn.commit()
+    return get_bot_status()
+
+def set_auto_reply_mode(mode, updated_by):
+    """Set auto reply mode (true = semua pesan, false = hanya trigger)"""
+    cur.execute("""
+        UPDATE bot_status 
+        SET auto_reply = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = 1
+    """, (mode, str(updated_by)))
+    conn.commit()
+    
+    # Also update settings for backward compatibility
+    cur.execute("""
+        UPDATE settings 
+        SET value = %s, updated_at = CURRENT_TIMESTAMP 
+        WHERE key = 'auto_reply_mode'
+    """, (str(mode).lower(),))
+    conn.commit()
+    
+    return get_bot_status()
 
 # =============================
 # AI CLIENT MANAGER
@@ -470,7 +530,7 @@ HELP_TEXT = """
 **🔰 USTADZ AI - BOT MANAGER**
 
 **🤖 Commands untuk Semua User:**
-• `!zai [pesan]` - Ngobrol dengan Ustadz Zai
+• `!zai [pesan]` - Ngobrol dengan Ustadz Zai (trigger mode)
 • `/status` - Lihat status bot
 
 **👑 Commands untuk Admin:**
@@ -484,6 +544,12 @@ HELP_TEXT = """
 • `/test_token [prefix]` - Test token tertentu
 • `/clean_logs [days]` - Bersihkan log lama
 • `/help` - Tampilkan menu ini
+
+**🔌 Bot Control:**
+• `/on` - Aktifkan bot (akan menjawab semua pesan)
+• `/off` - Nonaktifkan bot (tidak menjawab)
+• `/mode auto` - Mode Auto: menjawab SEMUA pesan
+• `/mode trigger` - Mode Trigger: hanya menjawab dengan !zai atau sebutan
 
 **⚙️ Settings yang bisa diubah:**
 • `max_history` - Jumlah pesan diingat (default: 30)
@@ -521,11 +587,19 @@ async def status_handler(event):
     
     stats = ai_manager.get_stats()
     current = ai_manager.get_current_client()
+    bot_status = get_bot_status()
     
     success_rate = (stats['success_24h']/stats['requests_24h']*100) if stats['requests_24h'] > 0 else 0
     
+    mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai atau sebutan)"
+    status_text = "AKTIF ✅" if bot_status['is_active'] else "NONAKTIF ❌"
+    
     message = f"""
 **📊 BOT STATUS**
+
+**Bot:**
+• Status: {status_text}
+• Mode: {mode_text}
 
 **Token:**
 • Active: {stats['active_tokens']}/{stats['total_tokens']}
@@ -733,12 +807,18 @@ async def settings_handler(event):
     
     cur.execute("SELECT key, value FROM settings ORDER BY key")
     settings = cur.fetchall()
+    bot_status = get_bot_status()
     
     message = "**⚙️ PENGATURAN BOT**\n\n"
     for key, value in settings:
         message += f"• `{key}` = `{value}`\n"
     
-    message += "\nGunakan `/set [key] [value]` untuk mengubah"
+    message += f"\n**Bot Status:**\n"
+    message += f"• `is_active` = `{bot_status['is_active']}`\n"
+    message += f"• `auto_reply` = `{bot_status['auto_reply']}`\n"
+    
+    message += "\nGunakan `/set [key] [value]` untuk mengubah\n"
+    message += "Gunakan `/on`, `/off`, `/mode auto`, `/mode trigger` untuk kontrol bot"
     
     await event.reply(message)
 
@@ -848,6 +928,69 @@ async def clean_logs_handler(event):
     await event.reply(f"✅ {deleted} log entries lebih dari {days} hari telah dihapus")
 
 # =============================
+# NEW BOT CONTROL COMMANDS
+# =============================
+
+@client.on(events.NewMessage(pattern=r'^/on$'))
+async def turn_on_handler(event):
+    """Turn bot on"""
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
+    
+    if not is_admin(event.sender_id):
+        await event.reply("❌ Hanya admin yang bisa menghidupkan bot")
+        return
+    
+    status = set_bot_active(True, event.sender_id)
+    mode_text = "AUTO" if status['auto_reply'] else "TRIGGER"
+    await event.reply(f"✅ Bot diaktifkan! Mode: {mode_text}")
+
+@client.on(events.NewMessage(pattern=r'^/off$'))
+async def turn_off_handler(event):
+    """Turn bot off"""
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
+    
+    if not is_admin(event.sender_id):
+        await event.reply("❌ Hanya admin yang bisa mematikan bot")
+        return
+    
+    set_bot_active(False, event.sender_id)
+    await event.reply("❌ Bot dimatikan. Tidak akan merespons pesan.")
+
+@client.on(events.NewMessage(pattern=r'^/mode auto$'))
+async def mode_auto_handler(event):
+    """Set auto reply mode (reply to all messages)"""
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
+    
+    if not is_admin(event.sender_id):
+        await event.reply("❌ Hanya admin yang bisa mengubah mode")
+        return
+    
+    status = set_auto_reply_mode(True, event.sender_id)
+    if status['is_active']:
+        await event.reply("✅ Mode AUTO: Bot akan menjawab SEMUA pesan!")
+    else:
+        await event.reply("✅ Mode diset ke AUTO, tapi bot masih OFF. Ketik /on untuk mengaktifkan.")
+
+@client.on(events.NewMessage(pattern=r'^/mode trigger$'))
+async def mode_trigger_handler(event):
+    """Set trigger mode (reply only with !zai or mentions)"""
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
+    
+    if not is_admin(event.sender_id):
+        await event.reply("❌ Hanya admin yang bisa mengubah mode")
+        return
+    
+    status = set_auto_reply_mode(False, event.sender_id)
+    if status['is_active']:
+        await event.reply("✅ Mode TRIGGER: Bot hanya menjawab dengan !zai atau sebutan")
+    else:
+        await event.reply("✅ Mode diset ke TRIGGER, tapi bot masih OFF. Ketik /on untuk mengaktifkan.")
+
+# =============================
 # MAIN EVENT HANDLER
 # =============================
 
@@ -860,10 +1003,27 @@ async def message_handler(event):
     if event.raw_text.startswith('/'):
         return
     
-    # Filter - hanya respon jika disebut
-    if not (event.raw_text.startswith("!zai") or 
+    # Check bot status
+    bot_status = get_bot_status()
+    
+    # If bot is off, don't respond
+    if not bot_status['is_active']:
+        return
+    
+    # Determine if bot should respond
+    should_respond = False
+    
+    if bot_status['auto_reply']:
+        # Mode AUTO: respond to ALL messages
+        should_respond = True
+    else:
+        # Mode TRIGGER: only respond if triggered
+        if (event.raw_text.startswith("!zai") or 
             "ustadz zai" in event.raw_text.lower() or
             "zai" in event.raw_text.lower()):
+            should_respond = True
+    
+    if not should_respond:
         return
     
     sender = await event.get_sender()
@@ -903,10 +1063,15 @@ async def periodic_stats():
         
         stats = ai_manager.get_stats()
         current = ai_manager.get_current_client()
+        bot_status = get_bot_status()
         
         success_rate = (stats['success_24h']/stats['requests_24h']*100) if stats['requests_24h'] > 0 else 0
         
+        mode_text = "AUTO" if bot_status['auto_reply'] else "TRIGGER"
+        status_text = "ON" if bot_status['is_active'] else "OFF"
+        
         print(f"\n📊 HOURLY STATS")
+        print(f"Bot: {status_text} | Mode: {mode_text}")
         print(f"Tokens: {stats['active_tokens']}/{stats['total_tokens']} active")
         print(f"Current: {current['token'][:10] if current else 'None'}")
         print(f"Requests (24h): {stats['requests_24h']}")
@@ -918,9 +1083,16 @@ async def periodic_stats():
 
 async def main():
     print("🤖 Ustad Zai - Full Management via Telegram")
+    bot_status = get_bot_status()
+    mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai atau sebutan)"
+    status_text = "AKTIF" if bot_status['is_active'] else "NONAKTIF"
+    
+    print(f"📊 Bot Status: {status_text}")
+    print(f"📊 Mode: {mode_text}")
     print(f"📊 Active Tokens: {len(ai_manager.get_active_tokens())}")
     print(f"👑 Admins: {ADMIN_IDS}")
     print(f"📝 Ketik /help untuk menu")
+    print(f"🔌 Gunakan /on, /off, /mode auto, /mode trigger untuk kontrol bot")
     
     # Start periodic tasks
     asyncio.create_task(periodic_stats())
