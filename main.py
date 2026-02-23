@@ -165,7 +165,7 @@ def generate_ai(prompt):
 
         response = hf.chat.completions.create(
 
-            model="mistralai/Mistral-7B-Instruct-v0.3",
+            model="Qwen/Qwen2.5-72B-Instruct",
 
             messages=[
                 {"role": "user", "content": prompt}
