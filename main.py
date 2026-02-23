@@ -30,7 +30,7 @@ ADMIN_IDS = [8229304441, 6876331769]  # ID admin
 # =============================
 # INITIALIZE CLIENT (PENTING: harus sebelum handler)
 # =============================
-client = TelegramClient("ustadzai_manager", api_id, api_hash)
+client = TelegramClient("anon_ai", api_id, api_hash)
 
 # =============================
 # DATABASE SETUP
