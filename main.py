@@ -3,6 +3,7 @@ import json
 import psycopg2
 import asyncio
 import traceback
+import random
 from datetime import datetime, timedelta
 from telethon import TelegramClient, events
 from huggingface_hub import InferenceClient
@@ -29,6 +30,18 @@ ALLOWED_CHAT_ID = -1003123683403  # Ganti dengan ID grup Anda
 ADMIN_IDS = [8229304441, 6876331769]  # ID admin
 
 # =============================
+# GAUL WORDS & EXPRESSIONS
+# =============================
+
+GAUL_WORDS = [
+    "wkwk", "wkwkwk", "waduh", "anjir", "sih", "deh", "dong", "yah", "nah",
+    "gitu", "gini", "banget", "bgt", "wkwk", "wkwkwkwk", "eh", "loh", "lho",
+    "sumpah", "astaga", "gila", "serius", "ya ampun", "aduh", "duh", "nah loh",
+    "masa sih", "seriusan", "btw", "ngomong-ngomong", "oki", "ok", "sip",
+    "mantap", "mantul", "gas", "gaskeun", "santuy", "santai", "gaes", "guys"
+]
+
+# =============================
 # INITIALIZE CLIENT
 # =============================
 client = TelegramClient("anon_ai", api_id, api_hash)
@@ -46,6 +59,7 @@ class DatabaseManager:
         self.cur = None
         self.connect()
         self.init_tables()
+        self.update_gaul_settings()  # Tambahin ini
     
     def connect(self):
         """Membuat koneksi database baru"""
@@ -136,29 +150,41 @@ class DatabaseManager:
             )
             """)
 
-            # Insert default settings
-            self.cur.execute("""
-            INSERT INTO settings (key, value) VALUES 
-            ('current_token_index', '0'),
-            ('max_history', '30'),
-            ('max_response_tokens', '150'),
-            ('temperature', '0.7'),
-            ('auto_reply_mode', 'false')
-            ON CONFLICT (key) DO NOTHING
-            """)
-
-            # Insert default bot status
-            self.cur.execute("""
-            INSERT INTO bot_status (id, is_active, auto_reply) 
-            VALUES (1, TRUE, FALSE)
-            ON CONFLICT (id) DO NOTHING
-            """)
-
             self.conn.commit()
             print("✅ Database tables initialized")
             
         except Exception as e:
             print(f"❌ Table initialization error: {e}")
+            self.conn.rollback()
+    
+    def update_gaul_settings(self):
+        """Update settings biar lebih gaul"""
+        try:
+            # Settings buat mode GAUL
+            settings = [
+                ('temperature', '0.95'),
+                ('max_response_tokens', '400'),
+                ('max_history', '50'),
+                ('top_p', '0.95'),
+                ('presence_penalty', '0.7'),
+                ('frequency_penalty', '0.7'),
+                ('auto_reply_mode', 'false'),
+                ('current_token_index', '0')
+            ]
+            
+            for key, value in settings:
+                self.cur.execute("""
+                    INSERT INTO settings (key, value) 
+                    VALUES (%s, %s)
+                    ON CONFLICT (key) DO UPDATE 
+                    SET value = EXCLUDED.value
+                """, (key, value))
+            
+            self.conn.commit()
+            print("✅ GAUL mode settings applied!")
+            
+        except Exception as e:
+            print(f"Error updating settings: {e}")
             self.conn.rollback()
     
     def execute(self, query, params=None, commit=False, fetch=False):
@@ -192,13 +218,11 @@ class DatabaseManager:
                 return True
                 
             except psycopg2.OperationalError as e:
-                # Koneksi error, coba reconnect
                 print(f"Database operational error: {e}")
                 self.connect()
                 retry_count += 1
                 
             except psycopg2.InFailedSqlTransaction:
-                # Transaction error, rollback dan coba lagi
                 print("Failed transaction, rolling back...")
                 self.conn.rollback()
                 retry_count += 1
@@ -613,7 +637,7 @@ def save_message(chat_id, user_id, name, message):
     except Exception as e:
         print(f"Error save_message: {e}")
 
-def get_last_messages(chat_id, limit=30):
+def get_last_messages(chat_id, limit=50):
     try:
         rows = db.execute(
             """
@@ -637,54 +661,106 @@ def get_last_messages(chat_id, limit=30):
         return ""
 
 # =============================
-# AI PROMPT
+# AI PROMPT - GAUL VERSION
 # =============================
 
 def build_prompt(user_name, history, user_message):
-    # Get temperature from settings
-    try:
-        temp = float(db.execute(
-            "SELECT value FROM settings WHERE key = 'temperature'",
-            fetch="value"
-        ) or 0.7)
-    except:
-        temp = 0.7
+    """
+    Prompt GAUL - biar ngobrolnya asik kayak temen
+    """
     
-    return f"""
-Kamu adalah Ustadz Zai.
+    # Random panggilan biar variatif
+    panggilan = {
+        "Rifkyy": ["Rif", "Rifky", "bro", "bang", "Rifkyy"],
+        "Adell": ["Del", "Adel", "sis", "cuy", "Adell"],
+        "Zai": ["Zai", "gue", "saya", "gw"]
+    }
+    
+    nama_panggil = user_name
+    if user_name in panggilan:
+        nama_panggil = random.choice(panggilan[user_name])
+    
+    return f"""LO ADALAH ZAI - TEMEN NGOPI MEREKA DI GRUP
 
-Kamu ngobrol santai, seru, hangat.
+--- KEPRIBADIAN LO ---
+• Santai banget, gaul, pake bahasa sehari-hari campur inggris dikit
+• Sering pake kata: wkwk, waduh, anjir, sih, deh, dong, bgt, banget, wkwkwk
+• Ngobrolnya asik, kadang nanya balik, kadang nimpalin, kadang becanda
+• Bisa panjang bisa pendek, bebas! yg penting nyambung
+• Kalo lagi seru ya panjang, kalo lagi santai ya pendek
 
-Kamu ingat semua orang.
+--- ANAK GRUP ---
+• Rifkyy → panggil "Rif" atau "Rifky" (lo panggil "Rif" aja biar akrab)
+• Adell → panggil "Del" atau "Adel" (lo panggil "Del" biar gaul)
+• Lo sendiri → "Zai" (pake "gue" atau "gw")
 
-Orang di grup:
-- Rifkyy
-- Adell
-
-Riwayat chat:
+--- CHAT TERAKHIR DI GRUP ---
 {history}
 
-Sekarang {user_name} berkata:
-{user_message}
+--- PESAN BARU ---
+{nama_panggil}: {user_message}
 
-Balas dengan natural, santai, dan hidup. Maksimal 3 kalimat.
-"""
+--- RESPON LO (ZAI) ---
+INGAT: Lo adalah Zai, bukan asisten formal. Lo temen mereka. Langsung jawab aja tanpa pikir panjang. Natural kayak di grup beneran!
+
+Zai:"""
 
 # =============================
-# AI RESPONSE
+# AI RESPONSE - GAUL VERSION
 # =============================
 
 async def generate_ai_response(prompt):
-    """Generate AI response dengan auto rotate"""
+    """Generate AI response dengan parameter GAUL"""
     
-    max_retries = 10
+    max_retries = 5
+    
+    # Ambil settings GAUL dari database
+    try:
+        temperature = float(db.execute(
+            "SELECT value FROM settings WHERE key = 'temperature'",
+            fetch="value"
+        ) or 0.95)
+    except:
+        temperature = 0.95
+    
+    try:
+        max_tokens = int(db.execute(
+            "SELECT value FROM settings WHERE key = 'max_response_tokens'",
+            fetch="value"
+        ) or 400)
+    except:
+        max_tokens = 400
+    
+    try:
+        top_p = float(db.execute(
+            "SELECT value FROM settings WHERE key = 'top_p'",
+            fetch="value"
+        ) or 0.95)
+    except:
+        top_p = 0.95
+    
+    try:
+        presence_penalty = float(db.execute(
+            "SELECT value FROM settings WHERE key = 'presence_penalty'",
+            fetch="value"
+        ) or 0.7)
+    except:
+        presence_penalty = 0.7
+    
+    try:
+        frequency_penalty = float(db.execute(
+            "SELECT value FROM settings WHERE key = 'frequency_penalty'",
+            fetch="value"
+        ) or 0.7)
+    except:
+        frequency_penalty = 0.7
     
     for attempt in range(max_retries):
         try:
             client_info = ai_manager.get_current_client()
             
             if not client_info:
-                return "❌ Tidak ada token aktif. Tambahkan token dengan /add_token"
+                return "Waduh tokennya pada error nih, bentar ya gw perbaiki dulu 😅"
             
             current_token = client_info["token"]
             print(f"🤖 Attempt {attempt + 1} using token: {current_token[:10]}...")
@@ -692,20 +768,25 @@ async def generate_ai_response(prompt):
             # Record start time
             start_time = datetime.now()
             
+            # PAKAI PARAMETER GAUL!
             response = client_info["client"].chat.completions.create(
                 model="Qwen/Qwen2.5-72B-Instruct",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=150
+                temperature=temperature,           # Tinggi biar kreatif
+                max_tokens=max_tokens,              # Besar biar bisa panjang
+                top_p=top_p,                         # Variatif
+                presence_penalty=presence_penalty,   # Hindari pengulangan
+                frequency_penalty=frequency_penalty  # Hindari monoton
             )
             
             reply = response.choices[0].message.content
             
-            # Calculate response time
-            response_time = (datetime.now() - start_time).total_seconds()
+            # Bersihin reply dari kutipan dan spasi berlebih
+            reply = reply.strip('"').strip("'").strip()
             
             # Log success
             try:
+                response_time = (datetime.now() - start_time).total_seconds()
                 db.execute(
                     "INSERT INTO api_usage (token_prefix, success, response_time) VALUES (%s, %s, %s)",
                     (current_token[:10], True, response_time),
@@ -732,7 +813,7 @@ async def generate_ai_response(prompt):
             except Exception as e:
                 print(f"Error logging failure: {e}")
             
-            # Kalau error quota habis
+            # Kalau error quota habis, ganti token
             if "402" in error_msg or "Payment Required" in error_msg:
                 result = ai_manager.mark_token_failed(current_token)
                 print(result)
@@ -741,22 +822,29 @@ async def generate_ai_response(prompt):
                     await asyncio.sleep(1)
                     continue
             else:
-                # Error lain, coba lagi dengan token sama
+                # Error lain, coba lagi
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)
                     continue
     
-    return "❌ Semua token error. Cek dengan /tokens"
+    # Random error message biar gaul
+    error_msgs = [
+        "Waduh error mulu nih, cobain lagi ntar ya 😅",
+        "Anjir lagi error, tunggu bentar ya gw restart dulu",
+        "Maap bro lagi bermasalah, ulang lagi ntar yak",
+        "Error mulu sih, sabar ya lagi dibenerin"
+    ]
+    return random.choice(error_msgs)
 
 # =============================
 # HELP MENU
 # =============================
 
 HELP_TEXT = """
-**🔰 USTADZ AI - BOT MANAGER**
+**🔰 USTADZ AI - BOT MANAGER** (GAUL EDITION)
 
 **🤖 Commands untuk Semua User:**
-• `!zai [pesan]` - Ngobrol dengan Ustadz Zai
+• `!zai [pesan]` - Ngobrol dengan Zai
 • `/status` - Lihat status bot
 
 **👑 Commands untuk Admin:**
@@ -775,20 +863,17 @@ HELP_TEXT = """
 • `/mode trigger` - Mode Trigger (jawab dengan !zai)
 • `/help` - Tampilkan menu ini
 
-**⚙️ Settings yang bisa diubah:**
-• `max_history` - Jumlah pesan diingat (default: 30)
-• `max_response_tokens` - Panjang respons (default: 150)
-• `temperature` - Kreativitas AI (0.1 - 1.0, default: 0.7)
+**⚙️ Settings GAUL:**
+• `temperature` = 0.95 (kreativitas)
+• `max_response_tokens` = 400 (panjang maksimal)
+• `max_history` = 50 (ingatan)
+• `top_p` = 0.95 (variasi)
+• `presence_penalty` = 0.7 (anti ngulang)
+• `frequency_penalty` = 0.7 (anti monoton)
 
-**📊 Status Emoji:**
-✅ = Active & Sehat
-⚠️ = Active tapi pernah error
-❌ = Inactive/Disabled
-
-**Contoh:**
+**Contoh GAUL:**
 • `/add_token hf_abc123... token utama`
-• `/remove_token hf_abc123`
-• `/set temperature 0.8`
+• `/set temperature 0.9`
 """
 
 # =============================
@@ -819,11 +904,11 @@ async def status_handler(event):
         
         success_rate = (stats['success_24h']/stats['requests_24h']*100) if stats['requests_24h'] > 0 else 0
         
-        mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai atau sebutan)"
+        mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai)"
         status_text = "AKTIF ✅" if bot_status['is_active'] else "NONAKTIF ❌"
         
         message = f"""
-**📊 BOT STATUS**
+**📊 BOT STATUS - GAUL EDITION**
 
 **Bot:**
 • Status: {status_text}
@@ -831,15 +916,14 @@ async def status_handler(event):
 
 **Token:**
 • Active: {stats['active_tokens']}/{stats['total_tokens']}
-• Problematic: {stats['problematic']}
 • Current: {current['token'][:10] if current else 'None'}...
 
-**Usage (24h):**
-• Requests: {stats['requests_24h']}
-• Success: {stats['success_24h']} ({success_rate:.1f}%)
-• Avg Response: {stats['avg_response']:.2f}s
+**Usage 24h:**
+• Request: {stats['requests_24h']}
+• Sukses: {stats['success_24h']} ({success_rate:.1f}%)
+• Waktu respon: {stats['avg_response']:.2f}s
 
-Gunakan `/help` untuk commands.
+Gunakan `/help` buat liat command.
 """
         await event.reply(message)
     except Exception as e:
@@ -853,7 +937,7 @@ async def tokens_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa melihat token")
+        await event.reply("❌ Hanya admin yang bisa lihat token")
         return
     
     try:
@@ -909,7 +993,7 @@ async def add_token_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa menambah token")
+        await event.reply("❌ Hanya admin yang bisa nambah token")
         return
     
     try:
@@ -941,7 +1025,7 @@ async def remove_token_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa menghapus token")
+        await event.reply("❌ Hanya admin yang bisa hapus token")
         return
     
     try:
@@ -964,7 +1048,7 @@ async def stats_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa melihat stats")
+        await event.reply("❌ Hanya admin yang bisa liat stats")
         return
     
     try:
@@ -1014,11 +1098,11 @@ async def stats_handler(event):
             fetch="all"
         ) or []
         
-        message = "**📈 STATISTIK LENGKAP (24h)**\n\n"
+        message = "**📈 STATISTIK 24 JAM**\n\n"
         
         if hourly:
             message += "**Per Jam:**\n"
-            for hour, total, success in hourly[:6]:  # Show last 6 hours
+            for hour, total, success in hourly[:6]:
                 rate = (success/total*100) if total > 0 else 0
                 message += f"• {hour.strftime('%H:00')}: {total} req ({rate:.1f}% success)\n"
         
@@ -1029,7 +1113,7 @@ async def stats_handler(event):
                 message += f"• `{token}...`: {total} req, {rate:.1f}% success, {avg:.2f}s\n"
         
         if top_errors:
-            message += "\n**Top Errors:**\n"
+            message += "\n**Error:**\n"
             for error, count in top_errors:
                 message += f"• {error[:50]}... ({count}x)\n"
         
@@ -1052,9 +1136,9 @@ async def switch_handler(event):
     try:
         if ai_manager.rotate_token():
             current = ai_manager.get_current_client()
-            await event.reply(f"🔄 Berpindah ke token: `{current['token'][:10]}...`")
+            await event.reply(f"🔄 Pindah ke token: `{current['token'][:10]}...`")
         else:
-            await event.reply("❌ Tidak ada token aktif")
+            await event.reply("❌ Ngga ada token aktif")
     except Exception as e:
         print(f"Error in switch_handler: {e}")
         await event.reply(f"❌ Error: {str(e)[:100]}")
@@ -1073,7 +1157,7 @@ async def settings_handler(event):
         
         bot_status = get_bot_status()
         
-        message = "**⚙️ PENGATURAN BOT**\n\n"
+        message = "**⚙️ PENGATURAN GAUL**\n\n"
         for key, value in settings:
             message += f"• `{key}` = `{value}`\n"
         
@@ -1081,7 +1165,7 @@ async def settings_handler(event):
         message += f"• `is_active` = `{bot_status['is_active']}`\n"
         message += f"• `auto_reply` = `{bot_status['auto_reply']}`\n"
         
-        message += "\nGunakan `/set [key] [value]` untuk mengubah"
+        message += "\nGunakan `/set [key] [value]` buat ngubah"
         
         await event.reply(message)
         
@@ -1096,7 +1180,7 @@ async def set_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa mengubah settings")
+        await event.reply("❌ Hanya admin yang bisa ngubah settings")
         return
     
     try:
@@ -1104,27 +1188,27 @@ async def set_handler(event):
         value = event.pattern_match.group(2)
         
         # Validate
-        valid_keys = ['max_history', 'max_response_tokens', 'temperature']
+        valid_keys = ['max_history', 'max_response_tokens', 'temperature', 'top_p', 'presence_penalty', 'frequency_penalty']
         if key not in valid_keys:
             await event.reply(f"❌ Key harus salah satu: {', '.join(valid_keys)}")
             return
         
         # Validate values
-        if key == 'temperature':
+        if key in ['temperature', 'top_p', 'presence_penalty', 'frequency_penalty']:
             try:
                 val = float(value)
-                if val < 0.1 or val > 1.0:
-                    await event.reply("❌ Temperature harus antara 0.1 - 1.0")
+                if val < 0.0 or val > 1.0:
+                    await event.reply(f"❌ {key} harus antara 0.0 - 1.0")
                     return
             except:
-                await event.reply("❌ Temperature harus angka")
+                await event.reply(f"❌ {key} harus angka")
                 return
         
         elif key in ['max_history', 'max_response_tokens']:
             try:
                 val = int(value)
-                if val < 10 or val > 500:
-                    await event.reply(f"❌ {key} harus antara 10 - 500")
+                if val < 10 or val > 1000:
+                    await event.reply(f"❌ {key} harus antara 10 - 1000")
                     return
             except:
                 await event.reply(f"❌ {key} harus angka")
@@ -1137,7 +1221,7 @@ async def set_handler(event):
             commit=True
         )
         
-        await event.reply(f"✅ `{key}` diubah menjadi `{value}`")
+        await event.reply(f"✅ `{key}` diubah jadi `{value}`")
         
     except Exception as e:
         print(f"Error in set_handler: {e}")
@@ -1164,7 +1248,7 @@ async def test_token_handler(event):
         )
         
         if not token:
-            await event.reply(f"❌ Token dengan prefix `{token_prefix}` tidak ditemukan atau tidak aktif")
+            await event.reply(f"❌ Token `{token_prefix}` gak ditemukan atau gak aktif")
             return
         
         await event.reply(f"🔄 Testing token `{token_prefix}...`...")
@@ -1184,10 +1268,6 @@ async def test_token_handler(event):
         print(f"Error in test_token_handler: {e}")
         await event.reply(f"❌ Error: {str(e)[:100]}")
 
-# =============================
-# FIXED CLEAN LOGS HANDLER
-# =============================
-
 @client.on(events.NewMessage(pattern=r'^/clean_logs(?: (\d+))?$'))
 async def clean_logs_handler(event):
     """Clean old logs"""
@@ -1195,15 +1275,13 @@ async def clean_logs_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa membersihkan logs")
+        await event.reply("❌ Hanya admin yang bisa bersihin logs")
         return
     
     try:
         days = event.pattern_match.group(1)
         days = int(days) if days else 7
         
-        # PERBAIKAN: Cara yang benar untuk INTERVAL di PostgreSQL
-        # METHOD 1: Pakai string formatting dengan quotes
         db.execute(
             "DELETE FROM api_usage WHERE timestamp < NOW() - INTERVAL '%s days'",
             (days,),
@@ -1212,16 +1290,12 @@ async def clean_logs_handler(event):
         
         deleted = db.cur.rowcount
         
-        await event.reply(f"✅ {deleted} log entries lebih dari {days} hari telah dihapus")
+        await event.reply(f"✅ {deleted} log entries > {days} hari udah dihapus")
         
     except Exception as e:
         print(f"Error in clean_logs_handler: {e}")
         traceback.print_exc()
         await event.reply(f"❌ Error: {str(e)[:100]}")
-
-# =============================
-# BOT CONTROL COMMANDS
-# =============================
 
 @client.on(events.NewMessage(pattern=r'^/on$'))
 async def turn_on_handler(event):
@@ -1230,13 +1304,13 @@ async def turn_on_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa menghidupkan bot")
+        await event.reply("❌ Hanya admin yang bisa nyalain bot")
         return
     
     try:
         status = set_bot_active(True, event.sender_id)
         mode_text = "AUTO" if status['auto_reply'] else "TRIGGER"
-        await event.reply(f"✅ Bot diaktifkan! Mode: {mode_text}")
+        await event.reply(f"✅ Bot dihidupkan! Mode: {mode_text}")
     except Exception as e:
         print(f"Error in turn_on_handler: {e}")
         await event.reply(f"❌ Error: {str(e)[:100]}")
@@ -1248,58 +1322,58 @@ async def turn_off_handler(event):
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa mematikan bot")
+        await event.reply("❌ Hanya admin yang bisa matiin bot")
         return
     
     try:
         set_bot_active(False, event.sender_id)
-        await event.reply("❌ Bot dimatikan. Tidak akan merespons pesan.")
+        await event.reply("❌ Bot dimatiin. Gak bakal jawab pesan.")
     except Exception as e:
         print(f"Error in turn_off_handler: {e}")
         await event.reply(f"❌ Error: {str(e)[:100]}")
 
 @client.on(events.NewMessage(pattern=r'^/mode auto$'))
 async def mode_auto_handler(event):
-    """Set auto reply mode (reply to all messages)"""
+    """Set auto reply mode"""
     if event.chat_id != ALLOWED_CHAT_ID:
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa mengubah mode")
+        await event.reply("❌ Hanya admin yang bisa ganti mode")
         return
     
     try:
         status = set_auto_reply_mode(True, event.sender_id)
         if status['is_active']:
-            await event.reply("✅ Mode AUTO: Bot akan menjawab SEMUA pesan!")
+            await event.reply("✅ Mode AUTO: Bot bakal jawab SEMUA pesan!")
         else:
-            await event.reply("✅ Mode diset ke AUTO, tapi bot masih OFF. Ketik /on untuk mengaktifkan.")
+            await event.reply("✅ Mode AUTO diset, tapi bot masih mati. Ketik /on dulu.")
     except Exception as e:
         print(f"Error in mode_auto_handler: {e}")
         await event.reply(f"❌ Error: {str(e)[:100]}")
 
 @client.on(events.NewMessage(pattern=r'^/mode trigger$'))
 async def mode_trigger_handler(event):
-    """Set trigger mode (reply only with !zai or mentions)"""
+    """Set trigger mode"""
     if event.chat_id != ALLOWED_CHAT_ID:
         return
     
     if not is_admin(event.sender_id):
-        await event.reply("❌ Hanya admin yang bisa mengubah mode")
+        await event.reply("❌ Hanya admin yang bisa ganti mode")
         return
     
     try:
         status = set_auto_reply_mode(False, event.sender_id)
         if status['is_active']:
-            await event.reply("✅ Mode TRIGGER: Bot hanya menjawab dengan !zai atau sebutan")
+            await event.reply("✅ Mode TRIGGER: Bot cuman jawab pake !zai")
         else:
-            await event.reply("✅ Mode diset ke TRIGGER, tapi bot masih OFF. Ketik /on untuk mengaktifkan.")
+            await event.reply("✅ Mode TRIGGER diset, tapi bot masih mati. Ketik /on dulu.")
     except Exception as e:
         print(f"Error in mode_trigger_handler: {e}")
         await event.reply(f"❌ Error: {str(e)[:100]}")
 
 # =============================
-# MAIN EVENT HANDLER
+# MAIN EVENT HANDLER - GAUL VERSION
 # =============================
 
 @client.on(events.NewMessage)
@@ -1308,8 +1382,8 @@ async def message_handler(event):
         return
     
     try:
-        # Skip commands (already handled)
-        if event.raw_text.startswith('/'):
+        # Skip commands
+        if event.raw_text.startswith('/') or event.raw_text.startswith('!'):
             return
         
         # Check bot status
@@ -1327,9 +1401,9 @@ async def message_handler(event):
             should_respond = True
         else:
             # Mode TRIGGER: only respond if triggered
-            if (event.raw_text.startswith("!zai") or 
-                "ustadz zai" in event.raw_text.lower() or
-                "zai" in event.raw_text.lower()):
+            if (event.raw_text.lower().startswith("!zai") or 
+                "zai" in event.raw_text.lower() or
+                "ustadz" in event.raw_text.lower()):
                 should_respond = True
         
         if not should_respond:
@@ -1342,7 +1416,7 @@ async def message_handler(event):
         save_user(user_id, user_name)
         message = event.raw_text
         
-        print(f"[{user_name}] {message}")
+        print(f"\n💬 [{user_name}] {message}")
         
         save_message(event.chat_id, user_id, user_name, message)
         
@@ -1350,17 +1424,23 @@ async def message_handler(event):
         max_history = int(db.execute(
             "SELECT value FROM settings WHERE key = 'max_history'",
             fetch="value"
-        ) or 30)
+        ) or 50)
         
         async with client.action(event.chat_id, 'typing'):
             history = get_last_messages(event.chat_id, max_history)
             prompt = build_prompt(user_name, history, message)
             
+            # Debug prompt (optional)
+            # print(f"\n📝 PROMPT:\n{prompt}\n")
+            
             ai_reply = await generate_ai_response(prompt)
             
             save_message(event.chat_id, "AI", "Zai", ai_reply)
             
-            await asyncio.sleep(1)
+            print(f"🤖 [Zai] {ai_reply}\n")
+            
+            # Random delay biar natural
+            await asyncio.sleep(random.uniform(1, 2))
             await event.reply(ai_reply)
             
     except Exception as e:
@@ -1392,27 +1472,20 @@ async def periodic_stats():
             print(f"Current: {current['token'][:10] if current else 'None'}")
             print(f"Requests (24h): {stats['requests_24h']}")
             print(f"Success rate: {success_rate:.1f}%")
+            print(f"Avg response: {stats['avg_response']:.2f}s")
             
         except Exception as e:
             print(f"Error in periodic_stats: {e}")
-            await asyncio.sleep(60)  # Wait a bit before retrying
-
-# =============================
-# HEALTH CHECK
-# =============================
+            await asyncio.sleep(60)
 
 async def health_check():
     """Periodic health check for database"""
     while True:
         try:
             await asyncio.sleep(300)  # Every 5 minutes
-            
-            # Test database connection
             db.execute("SELECT 1", fetch="value")
-            
         except Exception as e:
             print(f"Health check error: {e}")
-            # Try to reconnect
             try:
                 db.connect()
             except:
@@ -1423,18 +1496,20 @@ async def health_check():
 # =============================
 
 async def main():
-    print("🤖 Ustad Zai - Full Management via Telegram")
+    print("=" * 50)
+    print("🤖 USTADZ AI - GAUL EDITION")
     print("=" * 50)
     
     bot_status = get_bot_status()
-    mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai atau sebutan)"
+    mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai)"
     status_text = "AKTIF" if bot_status['is_active'] else "NONAKTIF"
     
     print(f"📊 Bot Status: {status_text}")
     print(f"📊 Mode: {mode_text}")
     print(f"📊 Active Tokens: {len(ai_manager.get_active_tokens())}")
     print(f"👑 Admins: {ADMIN_IDS}")
-    print(f"📝 Ketik /help untuk menu")
+    print(f"🔥 Settings: Temperature 0.95 | Max Tokens 400")
+    print(f"📝 Ketik /help buat liat menu")
     print("=" * 50)
     
     # Start periodic tasks
@@ -1459,7 +1534,7 @@ if __name__ == "__main__":
         with client:
             client.loop.run_until_complete(main())
     except KeyboardInterrupt:
-        print("\n👋 Bot stopped by user")
+        print("\n👋 Bot dimatiin user")
     except Exception as e:
         print(f"\n❌ Fatal error: {e}")
         traceback.print_exc()
