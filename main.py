@@ -1,23 +1,25 @@
 import os
-import asyncio
+import json
 import psycopg2
 from telethon import TelegramClient, events
-from openai import OpenAI
+from huggingface_hub import InferenceClient
 
 # =============================
 # CONFIG
 # =============================
 
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DATABASE_URL = os.getenv("DATABASE_URL")
+api_id = int(os.getenv("API_ID"))
+api_hash = os.getenv("API_HASH")
+hf_token = os.getenv("HF_TOKEN")
+database_url = os.getenv("DATABASE_URL")
 
-ALLOWED_CHAT_ID = -1002397166537  # Ganti sesuai grup lu
+ALLOWED_CHAT_ID = -1003123683403
+
+client = TelegramClient("session", api_id, api_hash)
+hf = InferenceClient(token=hf_token)
 
 # =============================
-# FORCED USER NAMES
+# FORCED NAMES
 # =============================
 
 FORCED_NAMES = {
@@ -26,213 +28,217 @@ FORCED_NAMES = {
 }
 
 # =============================
-# INIT CLIENT
+# POSTGRES CONNECT
 # =============================
 
-client = TelegramClient("bot_session", API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-openai = OpenAI(api_key=OPENAI_API_KEY)
+conn = psycopg2.connect(database_url)
+cur = conn.cursor()
 
-# =============================
-# DATABASE CONNECT
-# =============================
-
-conn = psycopg2.connect(DATABASE_URL)
-conn.autocommit = True
-cursor = conn.cursor()
-
-cursor.execute("""
+cur.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
     name TEXT
 )
 """)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS history (
+cur.execute("""
+CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
     chat_id TEXT,
-    role TEXT,
-    content TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    user_id TEXT,
+    name TEXT,
+    message TEXT,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 """)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS memories (
-    id SERIAL PRIMARY KEY,
-    key TEXT UNIQUE,
-    value TEXT
-)
-""")
+conn.commit()
 
 # =============================
 # USER SYSTEM
 # =============================
 
-def save_user(user_id, name):
-    cursor.execute(
-        "INSERT INTO users (user_id, name) VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET name = EXCLUDED.name",
-        (str(user_id), name)
-    )
-
 def get_user_name(user_id):
-    cursor.execute(
-        "SELECT name FROM users WHERE user_id=%s",
-        (str(user_id),)
-    )
-    result = cursor.fetchone()
-    if result:
-        return result[0]
-    return "akhi"
 
-def get_forced_name(user_id, telegram_name=None):
     uid = str(user_id)
 
+    # forced name priority
     if uid in FORCED_NAMES:
         return FORCED_NAMES[uid]
 
-    name = get_user_name(uid)
-    if name != "akhi":
-        return name
+    cur.execute(
+        "SELECT name FROM users WHERE user_id=%s",
+        (uid,)
+    )
 
-    return telegram_name or "akhi"
+    row = cur.fetchone()
+
+    if row:
+        return row[0]
+
+    return "akhi"
+
+
+def save_user(user_id, name):
+
+    uid = str(user_id)
+
+    cur.execute("""
+    INSERT INTO users (user_id, name)
+    VALUES (%s,%s)
+    ON CONFLICT (user_id)
+    DO UPDATE SET name=EXCLUDED.name
+    """, (uid, name))
+
+    conn.commit()
 
 # =============================
 # MEMORY SYSTEM
 # =============================
 
-def save_memory(key, value):
-    cursor.execute(
-        "INSERT INTO memories (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-        (key, value)
-    )
+def save_message(chat_id, user_id, name, message):
 
-def get_memory(key):
-    cursor.execute(
-        "SELECT value FROM memories WHERE key=%s",
-        (key,)
-    )
-    result = cursor.fetchone()
-    if result:
-        return result[0]
-    return None
+    cur.execute("""
+    INSERT INTO messages
+    (chat_id, user_id, name, message)
+    VALUES (%s,%s,%s,%s)
+    """, (str(chat_id), str(user_id), name, message))
 
-# =============================
-# HISTORY SYSTEM
-# =============================
+    conn.commit()
 
-def save_message(chat_id, role, content):
-    cursor.execute(
-        "INSERT INTO history (chat_id, role, content) VALUES (%s, %s, %s)",
-        (str(chat_id), role, content)
-    )
 
-def get_last_messages(chat_id, limit=50):
-    cursor.execute("""
-        SELECT role, content FROM history
-        WHERE chat_id=%s
-        ORDER BY id DESC
-        LIMIT %s
+def get_last_messages(chat_id, limit=100):
+
+    cur.execute("""
+    SELECT name, message FROM messages
+    WHERE chat_id=%s
+    ORDER BY id DESC
+    LIMIT %s
     """, (str(chat_id), limit))
-    
-    rows = cursor.fetchall()
+
+    rows = cur.fetchall()
+
     rows.reverse()
-    
-    return [{"role": r[0], "content": r[1]} for r in rows]
+
+    history = ""
+
+    for name, msg in rows:
+        history += f"{name}: {msg}\n"
+
+    return history
+
 
 # =============================
-# SYSTEM PROMPT
+# AI PROMPT
 # =============================
 
-def build_system_prompt(user_name):
-    rifky_rel = get_memory("relationship_Rifkyy") or "Rifkyy pacarnya Adell."
-    adell_rel = get_memory("relationship_Adell") or "Adell pacarnya Rifkyy."
+def build_prompt(user_name, history, user_message):
 
     return f"""
-Kamu adalah Ustad Zai.
-Gaul, santai, kadang plenger, suka bercanda.
-Tapi tetap sopan dan islami.
-Jangan pernah bilang kamu AI.
-Jawab singkat, natural, manusia banget.
+Kamu adalah Ustadz Zai.
 
-Info penting:
-{rifky_rel}
-{adell_rel}
+Kamu ngobrol santai, seru, hangat.
 
-Sekarang yang bicara adalah {user_name}.
-Panggil dia dengan namanya.
+Kamu ingat semua orang.
+
+Orang di grup:
+- Rifkyy
+- Adell
+
+Riwayat chat:
+{history}
+
+Sekarang {user_name} berkata:
+{user_message}
+
+Balas dengan natural, santai, dan hidup.
 """
 
-# =============================
-# BOT STATUS
-# =============================
-
-bot_active = False
-
-@client.on(events.NewMessage(pattern="/mulai"))
-async def start_bot(event):
-    global bot_active
-    bot_active = True
-    await event.reply("🔥 Ustad Zai aktif. Siap nemenin kalian.")
-    print("Bot ON")
-
-@client.on(events.NewMessage(pattern="/stop"))
-async def stop_bot(event):
-    global bot_active
-    bot_active = False
-    await event.reply("Bot dimatikan.")
-    print("Bot OFF")
 
 # =============================
-# MAIN HANDLER
+# AI RESPONSE
+# =============================
+
+def generate_ai(prompt):
+
+    try:
+
+        response = hf.chat.completions.create(
+
+            model="mistralai/Mistral-7B-Instruct-v0.3",
+
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+
+            temperature=0.7,
+            max_tokens=300
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+
+        return f"Error AI: {e}"
+
+
+# =============================
+# TELEGRAM EVENT
 # =============================
 
 @client.on(events.NewMessage)
 async def handler(event):
-    global bot_active
-
-    if not bot_active:
-        return
 
     if event.chat_id != ALLOWED_CHAT_ID:
         return
 
     sender = await event.get_sender()
+
     user_id = sender.id
+
     telegram_name = sender.first_name or "akhi"
 
-    user_name = get_forced_name(user_id, telegram_name)
+    user_name = get_user_name(user_id)
+
     save_user(user_id, user_name)
 
-    msg = event.raw_text
+    message = event.raw_text
 
-    print(f"[{user_name}] {msg}")
+    print(f"[{user_name}] {message}")
 
-    # Save user message
-    save_message(event.chat_id, "user", f"{user_name}: {msg}")
-
-    # Build prompt
-    history = get_last_messages(event.chat_id, 50)
-
-    messages = [
-        {"role": "system", "content": build_system_prompt(user_name)}
-    ] + history
-
-    # OpenAI Response
-    response = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages
+    save_message(
+        event.chat_id,
+        user_id,
+        user_name,
+        message
     )
 
-    reply = response.choices[0].message.content
+    history = get_last_messages(event.chat_id, 100)
 
-    save_message(event.chat_id, "assistant", reply)
+    prompt = build_prompt(
+        user_name,
+        history,
+        message
+    )
 
-    await event.reply(reply)
+    ai_reply = generate_ai(prompt)
+
+    save_message(
+        event.chat_id,
+        "AI",
+        "Zai",
+        ai_reply
+    )
+
+    await event.reply(ai_reply)
+
 
 # =============================
-# RUN
+# START
 # =============================
 
-print("🤖 Ustad Zai aktif dengan PostgreSQL memory")
+print("🤖 Ustad Zai aktif dengan HuggingFace + PostgreSQL + Memory + Forced Names")
+
+client.start()
+
 client.run_until_disconnected()
