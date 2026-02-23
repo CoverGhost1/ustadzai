@@ -15,7 +15,7 @@ database_url = os.getenv("DATABASE_URL")
 
 ALLOWED_CHAT_ID = -1003123683403
 
-client = TelegramClient("session", api_id, api_hash)
+client = TelegramClient("anon_ai", api_id, api_hash)
 hf = InferenceClient(token=hf_token)
 
 # =============================
