@@ -3,9 +3,8 @@ import json
 import psycopg2
 import asyncio
 from datetime import datetime, timedelta
-from telethon import TelegramClient, events, Button
+from telethon import TelegramClient, events
 from huggingface_hub import InferenceClient
-import random
 
 # =============================
 # CONFIG
@@ -15,7 +14,7 @@ api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 database_url = os.getenv("DATABASE_URL")
 
-# Initial HF Tokens (bisa ditambah via Telegram)
+# Initial HF Tokens
 HF_TOKENS = [
     os.getenv("HF_TOKEN_1"),
     os.getenv("HF_TOKEN_2"),
@@ -26,7 +25,12 @@ HF_TOKENS = [
 HF_TOKENS = [token for token in HF_TOKENS if token is not None]
 
 ALLOWED_CHAT_ID = -1003123683403  # Ganti dengan ID grup Anda
-ADMIN_IDS = [8229304441, 6876331769]  # ID admin yang bisa manage token
+ADMIN_IDS = [8229304441, 6876331769]  # ID admin
+
+# =============================
+# INITIALIZE CLIENT (PENTING: harus sebelum handler)
+# =============================
+client = TelegramClient("ustadzai_manager", api_id, api_hash)
 
 # =============================
 # DATABASE SETUP
@@ -57,7 +61,7 @@ CREATE TABLE IF NOT EXISTS messages (
 )
 """)
 
-# Tabel untuk menyimpan HF tokens di database
+# Tabel untuk menyimpan HF tokens
 cur.execute("""
 CREATE TABLE IF NOT EXISTS hf_tokens (
     id SERIAL PRIMARY KEY,
@@ -119,7 +123,7 @@ def load_tokens_from_db():
 HF_TOKENS = load_tokens_from_db()
 
 # =============================
-# AI CLIENT MANAGER (DB Based)
+# AI CLIENT MANAGER
 # =============================
 
 class AIClientManager:
@@ -196,10 +200,10 @@ class AIClientManager:
         
         if failures >= 5:
             self.disable_token(token)
-            return f"Token {token[:10]}... dinonaktifkan karena 5x gagal"
+            return f"⚠️ Token {token[:10]}... dinonaktifkan karena 5x gagal"
         
         self.rotate_token()
-        return f"Token {token[:10]}... gagal, rotate ke token berikutnya"
+        return f"🔄 Token {token[:10]}... gagal, rotate ke token berikutnya"
     
     def mark_token_success(self, token):
         """Menandai token berhasil digunakan"""
@@ -225,7 +229,7 @@ class AIClientManager:
             return False, str(e)
     
     def remove_token(self, token_prefix):
-        """Menonaktifkan token (soft delete)"""
+        """Menonaktifkan token"""
         cur.execute("""
             UPDATE hf_tokens 
             SET is_active = FALSE 
@@ -393,7 +397,7 @@ Balas dengan natural, santai, dan hidup. Maksimal 3 kalimat.
 async def generate_ai_response(prompt):
     """Generate AI response dengan auto rotate"""
     
-    max_retries = 10  # Coba maksimal 10x
+    max_retries = 10
     
     for attempt in range(max_retries):
         try:
@@ -498,7 +502,7 @@ HELP_TEXT = """
 """
 
 # =============================
-# COMMAND HANDLERS
+# COMMAND HANDLERS (Sekarang client sudah terdefinisi)
 # =============================
 
 @client.on(events.NewMessage(pattern=r'^/help$'))
@@ -518,6 +522,8 @@ async def status_handler(event):
     stats = ai_manager.get_stats()
     current = ai_manager.get_current_client()
     
+    success_rate = (stats['success_24h']/stats['requests_24h']*100) if stats['requests_24h'] > 0 else 0
+    
     message = f"""
 **📊 BOT STATUS**
 
@@ -528,7 +534,7 @@ async def status_handler(event):
 
 **Usage (24h):**
 • Requests: {stats['requests_24h']}
-• Success: {stats['success_24h']} ({stats['success_24h']/stats['requests_24h']*100:.1f}% if stats['requests_24h'] > 0 else 0)
+• Success: {stats['success_24h']} ({success_rate:.1f}%)
 • Avg Response: {stats['avg_response']:.2f}s
 
 Gunakan `/help` untuk commands.
@@ -684,15 +690,17 @@ async def stats_handler(event):
     
     message = "**📈 STATISTIK LENGKAP (24h)**\n\n"
     
-    message += "**Per Jam:**\n"
-    for hour, total, success in hourly[:6]:  # Show last 6 hours
-        rate = (success/total*100) if total > 0 else 0
-        message += f"• {hour.strftime('%H:00')}: {total} req ({rate:.1f}% success)\n"
+    if hourly:
+        message += "**Per Jam:**\n"
+        for hour, total, success in hourly[:6]:  # Show last 6 hours
+            rate = (success/total*100) if total > 0 else 0
+            message += f"• {hour.strftime('%H:00')}: {total} req ({rate:.1f}% success)\n"
     
-    message += "\n**Per Token:**\n"
-    for token, total, success, avg in per_token:
-        rate = (success/total*100) if total > 0 else 0
-        message += f"• `{token}...`: {total} req, {rate:.1f}% success, {avg:.2f}s\n"
+    if per_token:
+        message += "\n**Per Token:**\n"
+        for token, total, success, avg in per_token:
+            rate = (success/total*100) if total > 0 else 0
+            message += f"• `{token}...`: {total} req, {rate:.1f}% success, {avg:.2f}s\n"
     
     if top_errors:
         message += "\n**Top Errors:**\n"
@@ -896,11 +904,13 @@ async def periodic_stats():
         stats = ai_manager.get_stats()
         current = ai_manager.get_current_client()
         
+        success_rate = (stats['success_24h']/stats['requests_24h']*100) if stats['requests_24h'] > 0 else 0
+        
         print(f"\n📊 HOURLY STATS")
         print(f"Tokens: {stats['active_tokens']}/{stats['total_tokens']} active")
         print(f"Current: {current['token'][:10] if current else 'None'}")
         print(f"Requests (24h): {stats['requests_24h']}")
-        print(f"Success rate: {stats['success_24h']/stats['requests_24h']*100:.1f}%" if stats['requests_24h'] > 0 else "N/A")
+        print(f"Success rate: {success_rate:.1f}%")
 
 # =============================
 # START BOT
@@ -919,6 +929,5 @@ async def main():
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
-    client = TelegramClient("ustadzai_manager", api_id, api_hash)
     with client:
         client.loop.run_until_complete(main())
