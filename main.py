@@ -1,230 +1,299 @@
 import os
+import json
+import asyncio
+import base64
+import requests
+
 from telethon import TelegramClient, events
 from collections import deque
-import json
 from huggingface_hub import InferenceClient
+
 
 # =============================
 # CONFIG
 # =============================
+
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Note: This model ID format might need adjustment
-# For Novita AI, you might need a different endpoint
-MODEL_ID = "Qwen/Qwen2.5-72B-Instruct"  # Using a more standard model for testing
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPO = os.getenv("GITHUB_REPO")
+GITHUB_FILE = os.getenv("GITHUB_FILE", "group_history.json")
+
+MODEL_ID = "Qwen/Qwen2.5-72B-Instruct"
 ALLOWED_CHAT_ID = -1003123683403
 HISTORY_FILE = "group_history.json"
 
-# =============================
-# INIT TELEGRAM & HF CLIENT
-# =============================
-client = TelegramClient('anon_ai', api_id, api_hash)
+client = TelegramClient("anon_ai", api_id, api_hash)
 
-# Initialize HF client with proper endpoint if needed
 hf_client = InferenceClient(
     model=MODEL_ID,
     token=HF_TOKEN,
-    # If using Novita AI, you might need:
-    # base_url="https://api.novita.ai/v1"
 )
 
+bot_active = False
+
+
 # =============================
-# BOT STATE
+# GITHUB FUNCTIONS
 # =============================
-bot_active = False  # Menyimpan status bot (aktif/tidak)
+
+def github_pull():
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FILE}"
+
+        headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github.v3.raw"
+        }
+
+        r = requests.get(url, headers=headers)
+
+        if r.status_code == 200:
+            with open(HISTORY_FILE, "wb") as f:
+                f.write(r.content)
+
+            print("✅ History pulled from GitHub")
+
+        else:
+            print("No history file yet on GitHub")
+
+    except Exception as e:
+        print("GitHub pull error:", e)
+
+
+def github_push():
+
+    try:
+
+        with open(HISTORY_FILE, "rb") as f:
+            content = base64.b64encode(f.read()).decode()
+
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_FILE}"
+
+        headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+
+        r = requests.get(url, headers=headers)
+
+        sha = None
+
+        if r.status_code == 200:
+            sha = r.json()["sha"]
+
+        data = {
+            "message": "update memory",
+            "content": content,
+            "branch": "main"
+        }
+
+        if sha:
+            data["sha"] = sha
+
+        requests.put(url, headers=headers, json=data)
+
+        print("✅ History pushed to GitHub")
+
+    except Exception as e:
+        print("GitHub push error:", e)
+
 
 # =============================
 # MEMORY SYSTEM
 # =============================
+
 def load_history():
+
     if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r") as f:
-                raw = json.load(f)
-                # Convert list back to deque with maxlen=10
-                return {str(k): deque(v, maxlen=10) for k, v in raw.items()}
-        except Exception as e:
-            print(f"Error loading history: {e}")
-            return {}
+
+        with open(HISTORY_FILE, "r") as f:
+
+            raw = json.load(f)
+
+            return {
+                str(k): deque(v, maxlen=10)
+                for k, v in raw.items()
+            }
+
     return {}
 
+
 def save_history(chat_history):
-    try:
-        # Convert deque to list for JSON serialization
-        history_to_save = {str(k): list(v) for k, v in chat_history.items()}
-        with open(HISTORY_FILE, "w") as f:
-            json.dump(history_to_save, f, indent=2)
-    except Exception as e:
-        print(f"Error saving history: {e}")
 
-chat_history = load_history()
+    history_to_save = {
+        str(k): list(v)
+        for k, v in chat_history.items()
+    }
+
+    with open(HISTORY_FILE, "w") as f:
+
+        json.dump(history_to_save, f, indent=2)
+
+    github_push()
+
+
+chat_history = {}
+
 
 # =============================
-# PROMPT BUILDER
+# PROMPT
 # =============================
+
 def build_system_prompt():
-    return """Kamu adalah Ustadz muda bernama Ustad Zai, gaul dan santai. 
-Kadang plenger, bercanda ringan, tapi tetap islami. 
-Gunakan bahasa sehari-hari, emoji seperlunya, dan gaya ngobrol santai.
-Jawab singkat tapi jelas, bisa kasih motivasi, nasehat, atau info islami.
-Jangan sebut kalau kamu AI, jangan terlalu formal."""
+
+    return """
+Kamu adalah Ustadz Zai.
+
+Gaya:
+- santai
+- gaul
+- islami
+- tidak formal
+
+Kamu punya ingatan percakapan.
+
+Jangan bilang kamu AI.
+"""
+
 
 # =============================
-# COMMAND HANDLERS
+# AI REPLY
 # =============================
-@client.on(events.NewMessage(pattern='/mulai'))
-async def start_bot(event):
-    global bot_active
-    if event.chat_id != ALLOWED_CHAT_ID or event.out:
-        return
-    
-    bot_active = True
-    await event.reply("✅ **Ustad Zai aktif!**\n\nAku siap bantu jawab pertanyaan-pertanyaan seputar Islam, ngobrol santai, atau kasih nasehat. Silakan tanya apa aja! 🤗")
-    print(f"Bot started by {event.sender_id}")
 
-@client.on(events.NewMessage(pattern='/setop'))
-async def stop_bot(event):
-    global bot_active
-    if event.chat_id != ALLOWED_CHAT_ID or event.out:
-        return
-    
-    bot_active = False
-    await event.reply("⏸️ **Ustad Zai sedang istirahat dulu**\n\nKalau butuh lagi, ketik /mulai ya. Sampai jumpa! 👋")
-    print(f"Bot stopped by {event.sender_id}")
+def get_reply(chat_id, user_msg):
 
-# =============================
-# HELP COMMAND (optional)
-# =============================
-@client.on(events.NewMessage(pattern='/help'))
-async def help_command(event):
-    if event.chat_id != ALLOWED_CHAT_ID or event.out:
-        return
-    
-    help_text = """**🕌 Command Ustad Zai:**
-
-/mulai - Mengaktifkan bot untuk merespon pesan
-/setop - Menonaktifkan bot (berhenti merespon)
-/help - Menampilkan pesan bantuan ini
-
-**📝 Cara Penggunaan:**
-Setelah mengetik /mulai, bot akan otomatis merespon setiap pesan yang masuk di grup ini.
-
-**💡 Tips:**
-- Bot bisa diajak ngobrol santai seputar Islam
-- Punya memori 10 pesan terakhir untuk konteks percakapan
-- Jawaban singkat, jelas, dan gaul
-
-Ada yang bisa saya bantu? 😊"""
-    
-    await event.reply(help_text)
-
-# =============================
-# HF CHAT HANDLER
-# =============================
-def get_hf_reply(chat_id, user_msg):
-    # Get or create history for this chat
     if chat_id not in chat_history:
+
         chat_history[chat_id] = deque(maxlen=10)
-    
+
     history = chat_history[chat_id]
-    
-    # Prepare messages for the chat model
+
     messages = [
+
         {"role": "system", "content": build_system_prompt()}
+
     ]
-    
-    # Add conversation history (if any)
-    for msg in list(history):
-        messages.append(msg)
-    
-    # Add current user message
-    messages.append({"role": "user", "content": user_msg})
+
+    messages.extend(list(history))
+
+    messages.append({
+
+        "role": "user",
+        "content": user_msg
+
+    })
 
     try:
-        # Make the API call
+
         completion = hf_client.chat.completions.create(
+
             model=MODEL_ID,
             messages=messages,
-            max_tokens=500,
             temperature=0.7,
+            max_tokens=500
+
         )
-        
-        # Extract the response - different models might have different response formats
-        if hasattr(completion, 'choices') and len(completion.choices) > 0:
-            reply_text = completion.choices[0].message.content
-        else:
-            # Fallback for different response formats
-            reply_text = str(completion)
-        
-        # Update history
-        history.append({"role": "user", "content": user_msg})
-        history.append({"role": "assistant", "content": reply_text})
-        
-        # Save to file
+
+        reply = completion.choices[0].message.content
+
+        history.append({
+            "role": "user",
+            "content": user_msg
+        })
+
+        history.append({
+            "role": "assistant",
+            "content": reply
+        })
+
         save_history(chat_history)
-        
-        return reply_text
+
+        return reply
 
     except Exception as e:
-        print(f"❌ HF exception: {type(e).__name__}: {e}")
-        return "Maaf, terjadi error saat memproses pesanmu. Silakan coba lagi nanti. 🙏"
+
+        print("HF error:", e)
+
+        return "error"
+
 
 # =============================
-# TELEGRAM HANDLER
+# COMMANDS
 # =============================
-@client.on(events.NewMessage)
-async def handle_group(event):
+
+@client.on(events.NewMessage(pattern="/mulai"))
+async def mulai(event):
+
     global bot_active
-    
-    # Check if it's the allowed chat and not a message from the bot itself
-    if event.chat_id != ALLOWED_CHAT_ID or event.out:
+
+    if event.chat_id != ALLOWED_CHAT_ID:
         return
 
-    # Skip if it's a command (starts with /)
-    if event.raw_text.startswith('/'):
+    bot_active = True
+
+    await event.reply("Zai aktif")
+
+
+@client.on(events.NewMessage(pattern="/setop"))
+async def setop(event):
+
+    global bot_active
+
+    if event.chat_id != ALLOWED_CHAT_ID:
         return
 
-    # Only respond if bot is active
+    bot_active = False
+
+    await event.reply("Zai tidur")
+
+
+# =============================
+# CHAT HANDLER
+# =============================
+
+@client.on(events.NewMessage)
+async def handler(event):
+
+    if event.chat_id != ALLOWED_CHAT_ID:
+        return
+
+    if event.out:
+        return
+
+    if event.raw_text.startswith("/"):
+        return
+
     if not bot_active:
         return
 
-    msg = event.raw_text.strip()
-    if not msg:
-        return
+    msg = event.raw_text
 
-    print(f"[GroupChat] From {event.sender_id}: {msg}")
+    print("MSG:", msg)
 
-    # Show typing indicator
-    async with client.action(event.chat_id, 'typing'):
-        reply = get_hf_reply(str(ALLOWED_CHAT_ID), msg)
+    reply = get_reply(str(ALLOWED_CHAT_ID), msg)
 
-    if reply:
-        try:
-            await event.reply(reply)
-            print(f"[Bot] Replied: {reply[:50]}...")
-        except Exception as e:
-            print(f"Error sending reply: {e}")
+    await event.reply(reply)
+
 
 # =============================
-# STARTUP MESSAGE
+# MAIN
 # =============================
+
 async def main():
+
+    github_pull()
+
+    global chat_history
+    chat_history = load_history()
+
     await client.start()
-    print(f"🤖 Ustadz AI aktif menggunakan model: {MODEL_ID}")
-    print(f"✅ Hanya merespon di chat ID: {ALLOWED_CHAT_ID}")
-    print(f"📝 Bot dalam keadaan OFF. Ketik /mulai untuk mengaktifkan")
+
+    print("BOT READY")
+
     await client.run_until_disconnected()
 
-# =============================
-# RUN
-# =============================
-if __name__ == "__main__":
-    import asyncio
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nBot stopped by user")
-    except Exception as e:
-        print(f"Fatal error: {e}")
+
+asyncio.run(main())
