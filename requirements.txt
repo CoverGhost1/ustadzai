@@ -1,3 +1,4 @@
 telethon
 requests
 huggingface_hub
+psycopg2-binary
