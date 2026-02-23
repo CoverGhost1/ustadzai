@@ -1,1 +1,18 @@
-{}
+{
+  "-1003123683403": {
+    "users": {
+      "8229304441": {
+        "name": "Ibu",
+        "username": "adeliciousie",
+        "facts": []
+      }
+    },
+    "messages": [
+      {
+        "user_id": "8229304441",
+        "role": "user",
+        "content": "/mulai"
+      }
+    ]
+  }
+}
