@@ -5,7 +5,6 @@ import base64
 import requests
 
 from telethon import TelegramClient, events
-from collections import deque
 from huggingface_hub import InferenceClient
 
 
@@ -23,6 +22,7 @@ GITHUB_FILE = os.getenv("GITHUB_FILE", "group_history.json")
 
 MODEL_ID = "Qwen/Qwen2.5-72B-Instruct"
 ALLOWED_CHAT_ID = -1003123683403
+
 HISTORY_FILE = "group_history.json"
 
 client = TelegramClient("anon_ai", api_id, api_hash)
@@ -36,7 +36,7 @@ bot_active = False
 
 
 # =============================
-# GITHUB FUNCTIONS
+# GITHUB SYNC
 # =============================
 
 def github_pull():
@@ -53,20 +53,14 @@ def github_pull():
         if r.status_code == 200:
             with open(HISTORY_FILE, "wb") as f:
                 f.write(r.content)
-
-            print("✅ History pulled from GitHub")
-
-        else:
-            print("No history file yet on GitHub")
+            print("✅ Memory pulled from GitHub")
 
     except Exception as e:
         print("GitHub pull error:", e)
 
 
 def github_push():
-
     try:
-
         with open(HISTORY_FILE, "rb") as f:
             content = base64.b64encode(f.read()).decode()
 
@@ -74,13 +68,12 @@ def github_push():
 
         headers = {
             "Authorization": f"token {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github.v3+json"
+            "Accept": "application/vnd.github+json"
         }
 
         r = requests.get(url, headers=headers)
 
         sha = None
-
         if r.status_code == 200:
             sha = r.json()["sha"]
 
@@ -95,164 +88,172 @@ def github_push():
 
         requests.put(url, headers=headers, json=data)
 
-        print("✅ History pushed to GitHub")
+        print("✅ Memory pushed to GitHub")
 
     except Exception as e:
         print("GitHub push error:", e)
 
 
 # =============================
-# MEMORY SYSTEM
+# MEMORY SYSTEM (LONG HISTORY)
 # =============================
 
-def load_history():
-
+def load_memory():
     if os.path.exists(HISTORY_FILE):
-
         with open(HISTORY_FILE, "r") as f:
-
-            raw = json.load(f)
-
-            return {
-                str(k): deque(v, maxlen=10)
-                for k, v in raw.items()
-            }
-
+            return json.load(f)
     return {}
 
-
-def save_history(chat_history):
-
-    history_to_save = {
-        str(k): list(v)
-        for k, v in chat_history.items()
-    }
-
+def save_memory():
     with open(HISTORY_FILE, "w") as f:
-
-        json.dump(history_to_save, f, indent=2)
-
+        json.dump(memory, f, indent=2)
     github_push()
 
 
-chat_history = {}
+memory = {}
 
 
-# =============================
-# PROMPT
-# =============================
+def get_user(chat_id, user_id):
 
-def build_system_prompt():
+    chat_id = str(chat_id)
+    user_id = str(user_id)
 
-    return """
-Kamu adalah Ustadz Zai.
+    if chat_id not in memory:
+        memory[chat_id] = {
+            "users": {},
+            "messages": []
+        }
 
-Gaya:
-- santai
-- gaul
-- islami
-- tidak formal
+    if user_id not in memory[chat_id]["users"]:
+        memory[chat_id]["users"][user_id] = {
+            "name": None,
+            "facts": []
+        }
 
-Kamu punya ingatan percakapan.
-
-Jangan bilang kamu AI.
-"""
+    return memory[chat_id]["users"][user_id]
 
 
-# =============================
-# AI REPLY
-# =============================
+def save_message(chat_id, user_id, role, content):
 
-def get_reply(chat_id, user_msg):
+    chat_id = str(chat_id)
+    user_id = str(user_id)
 
-    if chat_id not in chat_history:
-
-        chat_history[chat_id] = deque(maxlen=10)
-
-    history = chat_history[chat_id]
-
-    messages = [
-
-        {"role": "system", "content": build_system_prompt()}
-
-    ]
-
-    messages.extend(list(history))
-
-    messages.append({
-
-        "role": "user",
-        "content": user_msg
-
+    memory[chat_id]["messages"].append({
+        "role": role,
+        "user_id": user_id,
+        "content": content
     })
 
+    save_memory()
+
+
+def detect_name(user_data, text):
+
+    t = text.lower()
+
+    if "nama aku" in t:
+        name = t.split("nama aku")[-1].strip()
+        if len(name) < 30:
+            user_data["name"] = name
+            print("🧠 Saved name:", name)
+            save_memory()
+
+
+# =============================
+# AI CONTEXT BUILDER
+# =============================
+
+def build_messages(chat_id, user_id, user_msg):
+
+    chat_id = str(chat_id)
+    user_id = str(user_id)
+
+    chat = memory.get(chat_id, {})
+    user = chat.get("users", {}).get(user_id, {})
+
+    messages = []
+
+    messages.append({
+        "role": "system",
+        "content": """
+Kamu adalah Ustadz Zai.
+Gaya santai, gaul, islami.
+Jangan bilang kamu AI.
+"""
+    })
+
+    if user.get("name"):
+        messages.append({
+            "role": "system",
+            "content": f"Nama user adalah {user['name']}"
+        })
+
+    # ambil 30 pesan terakhir saja untuk dikirim ke AI
+    history = chat.get("messages", [])[-30:]
+
+    for msg in history:
+        messages.append({
+            "role": msg["role"],
+            "content": msg["content"]
+        })
+
+    messages.append({
+        "role": "user",
+        "content": user_msg
+    })
+
+    return messages
+
+
+def get_reply(chat_id, user_id, user_msg):
+
+    user_data = get_user(chat_id, user_id)
+
+    detect_name(user_data, user_msg)
+
+    messages = build_messages(chat_id, user_id, user_msg)
+
     try:
-
         completion = hf_client.chat.completions.create(
-
             model=MODEL_ID,
             messages=messages,
-            temperature=0.7,
-            max_tokens=500
-
+            max_tokens=500,
+            temperature=0.7
         )
 
         reply = completion.choices[0].message.content
 
-        history.append({
-            "role": "user",
-            "content": user_msg
-        })
-
-        history.append({
-            "role": "assistant",
-            "content": reply
-        })
-
-        save_history(chat_history)
+        save_message(chat_id, user_id, "user", user_msg)
+        save_message(chat_id, user_id, "assistant", reply)
 
         return reply
 
     except Exception as e:
-
         print("HF error:", e)
-
-        return "error"
+        return "lagi error bro"
 
 
 # =============================
-# COMMANDS
+# TELEGRAM HANDLER
 # =============================
 
 @client.on(events.NewMessage(pattern="/mulai"))
 async def mulai(event):
-
     global bot_active
-
     if event.chat_id != ALLOWED_CHAT_ID:
         return
-
     bot_active = True
-
-    await event.reply("Zai aktif")
+    await event.reply("Zai aktif 🔥")
 
 
 @client.on(events.NewMessage(pattern="/setop"))
 async def setop(event):
-
     global bot_active
-
     if event.chat_id != ALLOWED_CHAT_ID:
         return
-
     bot_active = False
+    await event.reply("Zai tidur 💤")
 
-    await event.reply("Zai tidur")
-
-
-# =============================
-# CHAT HANDLER
-# =============================
 
 @client.on(events.NewMessage)
 async def handler(event):
@@ -269,11 +270,16 @@ async def handler(event):
     if not bot_active:
         return
 
-    msg = event.raw_text
+    msg = event.raw_text.strip()
 
-    print("MSG:", msg)
+    if not msg:
+        return
 
-    reply = get_reply(str(ALLOWED_CHAT_ID), msg)
+    reply = get_reply(
+        event.chat_id,
+        event.sender_id,
+        msg
+    )
 
     await event.reply(reply)
 
@@ -286,12 +292,12 @@ async def main():
 
     github_pull()
 
-    global chat_history
-    chat_history = load_history()
+    global memory
+    memory = load_memory()
 
     await client.start()
 
-    print("BOT READY")
+    print("🤖 ZAI MEMORY LONG MODE READY")
 
     await client.run_until_disconnected()
 
