@@ -12,6 +12,11 @@
         "user_id": "8229304441",
         "role": "user",
         "content": "/mulai"
+      },
+      {
+        "user_id": "8229304441",
+        "role": "assistant",
+        "content": "Assalamualaikum Ibu, selamat datang! Apa yang bisa saya bantu hari ini? Jangan ragu untuk bertanya apa saja, insya Allah saya akan berusaha menjawab sebaik mungkin."
       }
     ]
   }
