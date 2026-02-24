@@ -30,6 +30,12 @@ ALLOWED_CHAT_ID = -1003123683403  # Ganti dengan ID grup Anda
 ADMIN_IDS = [8229304441, 6876331769]  # ID admin
 
 # =============================
+# SMART REPLY CONFIG
+# =============================
+COOLDOWN_SECONDS = 2.5  # Nunggu 2.5 detik buat collect multiple messages
+MAX_COLLECT_MESSAGES = 3  # Max pesan yang dikumpulin sebelum reply
+
+# =============================
 # GAUL WORDS & EXPRESSIONS
 # =============================
 
@@ -59,7 +65,7 @@ class DatabaseManager:
         self.cur = None
         self.connect()
         self.init_tables()
-        self.update_gaul_settings()  # Tambahin ini
+        self.update_gaul_settings()
     
     def connect(self):
         """Membuat koneksi database baru"""
@@ -99,6 +105,8 @@ class DatabaseManager:
                 user_id TEXT,
                 name TEXT,
                 message TEXT,
+                reply_to_msg_id INTEGER,
+                is_sticker BOOLEAN DEFAULT FALSE,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
@@ -169,7 +177,9 @@ class DatabaseManager:
                 ('presence_penalty', '0.7'),
                 ('frequency_penalty', '0.7'),
                 ('auto_reply_mode', 'false'),
-                ('current_token_index', '0')
+                ('current_token_index', '0'),
+                ('cooldown_seconds', '2.5'),  # Tambahin cooldown
+                ('max_collect_messages', '3')   # Max pesan sebelum reply
             ]
             
             for key, value in settings:
@@ -620,30 +630,41 @@ def is_admin(user_id):
     return str(user_id) in [str(admin) for admin in ADMIN_IDS]
 
 # =============================
-# MEMORY SYSTEM
+# MEMORY SYSTEM WITH REPLY CONTEXT
 # =============================
 
-def save_message(chat_id, user_id, name, message):
+def save_message(chat_id, user_id, name, message, reply_to_msg_id=None, is_sticker=False):
     try:
         db.execute(
             """
             INSERT INTO messages
-            (chat_id, user_id, name, message)
-            VALUES (%s,%s,%s,%s)
+            (chat_id, user_id, name, message, reply_to_msg_id, is_sticker)
+            VALUES (%s,%s,%s,%s,%s,%s)
             """,
-            (str(chat_id), str(user_id), name, message),
+            (str(chat_id), str(user_id), name, message, reply_to_msg_id, is_sticker),
             commit=True
         )
     except Exception as e:
         print(f"Error save_message: {e}")
 
-def get_last_messages(chat_id, limit=50):
+def get_last_messages_with_context(chat_id, limit=50):
+    """
+    Ambil pesan terakhir dengan informasi reply context
+    """
     try:
         rows = db.execute(
             """
-            SELECT name, message FROM messages
-            WHERE chat_id=%s
-            ORDER BY id DESC
+            SELECT 
+                m1.name, 
+                m1.message, 
+                m1.reply_to_msg_id,
+                m2.name as reply_to_name,
+                m2.message as reply_to_message,
+                m1.is_sticker
+            FROM messages m1
+            LEFT JOIN messages m2 ON m1.reply_to_msg_id = m2.id
+            WHERE m1.chat_id=%s
+            ORDER BY m1.id DESC
             LIMIT %s
             """,
             (str(chat_id), limit),
@@ -652,8 +673,17 @@ def get_last_messages(chat_id, limit=50):
         
         rows.reverse()
         history = ""
-        for name, msg in rows:
-            history += f"{name}: {msg}\n"
+        
+        for name, msg, reply_id, reply_name, reply_msg, is_sticker in rows:
+            if is_sticker:
+                continue  # Skip sticker di history
+            
+            if reply_id and reply_name and reply_msg:
+                # Ini adalah reply ke pesan lain
+                history += f"{name} (reply ke {reply_name}: \"{reply_msg}\"): {msg}\n"
+            else:
+                history += f"{name}: {msg}\n"
+        
         return history
         
     except Exception as e:
@@ -661,12 +691,130 @@ def get_last_messages(chat_id, limit=50):
         return ""
 
 # =============================
-# AI PROMPT - GAUL VERSION
+# SMART MESSAGE COLLECTOR
 # =============================
 
-def build_prompt(user_name, history, user_message):
+class SmartMessageCollector:
     """
-    Prompt GAUL - biar ngobrolnya asik kayak temen
+    Ngumpulin pesan dalam waktu dekat sebelum reply,
+    biar gak reply berkali-kali buat pesan yang nyambung
+    """
+    
+    def __init__(self):
+        self.pending_messages = []  # List of (event, sender_name, message_text, reply_to_context)
+        self.processing = False
+        self.lock = asyncio.Lock()
+    
+    async def add_message(self, event, sender_name, message_text, reply_to_context=None):
+        """Tambah pesan ke antrian"""
+        async with self.lock:
+            self.pending_messages.append((event, sender_name, message_text, reply_to_context))
+            
+            # Kalau belum processing, mulai proses
+            if not self.processing:
+                self.processing = True
+                asyncio.create_task(self.process_messages())
+    
+    async def process_messages(self):
+        """Proses kumpulan pesan setelah cooldown"""
+        try:
+            # Ambil cooldown dari settings
+            cooldown = float(db.execute(
+                "SELECT value FROM settings WHERE key = 'cooldown_seconds'",
+                fetch="value"
+            ) or 2.5)
+            
+            max_messages = int(db.execute(
+                "SELECT value FROM settings WHERE key = 'max_collect_messages'",
+                fetch="value"
+            ) or 3)
+            
+            # Tunggu selama cooldown
+            await asyncio.sleep(cooldown)
+            
+            async with self.lock:
+                if not self.pending_messages:
+                    self.processing = False
+                    return
+                
+                # Ambil semua pesan yang terkumpul
+                messages_to_process = self.pending_messages.copy()
+                self.pending_messages.clear()
+                self.processing = False
+            
+            # Gabungkan pesan-pesan
+            combined_text = ""
+            reply_contexts = []
+            events = []
+            
+            for event, sender, msg, reply_ctx in messages_to_process[:max_messages]:
+                if reply_ctx:
+                    combined_text += f"{sender} (membalas {reply_ctx['reply_to_name']}: \"{reply_ctx['reply_to_message']}\"): {msg}\n"
+                    reply_contexts.append(reply_ctx)
+                else:
+                    combined_text += f"{sender}: {msg}\n"
+                events.append(event)
+            
+            # Gunakan event terakhir untuk reply (biar reply ke pesan terakhir)
+            last_event = events[-1] if events else None
+            
+            if last_event and combined_text.strip():
+                # Generate AI response untuk gabungan pesan
+                await self.generate_and_reply(last_event, combined_text.strip(), reply_contexts)
+                
+        except Exception as e:
+            print(f"Error in process_messages: {e}")
+            traceback.print_exc()
+            async with self.lock:
+                self.pending_messages.clear()
+                self.processing = False
+    
+    async def generate_and_reply(self, event, combined_text, reply_contexts):
+        """Generate AI response buat gabungan pesan"""
+        try:
+            sender = await event.get_sender()
+            user_id = sender.id
+            user_name = get_user_name(user_id)
+            
+            # Get max_history from settings
+            max_history = int(db.execute(
+                "SELECT value FROM settings WHERE key = 'max_history'",
+                fetch="value"
+            ) or 50)
+            
+            async with client.action(event.chat_id, 'typing'):
+                history = get_last_messages_with_context(event.chat_id, max_history)
+                
+                # Build prompt dengan context yang lebih baik
+                prompt = build_smart_prompt(user_name, history, combined_text, reply_contexts)
+                
+                print(f"\n📝 SMART PROMPT untuk {len(reply_contexts)} pesan:\n{combined_text}\n")
+                
+                ai_reply = await generate_ai_response(prompt)
+                
+                # Simpan response AI
+                save_message(event.chat_id, "AI", "Zai", ai_reply)
+                
+                print(f"🤖 [Zai] {ai_reply}\n")
+                
+                # Random delay biar natural
+                await asyncio.sleep(random.uniform(1, 2))
+                await event.reply(ai_reply)
+                
+        except Exception as e:
+            print(f"Error in generate_and_reply: {e}")
+            traceback.print_exc()
+
+# Inisialisasi message collector
+message_collector = SmartMessageCollector()
+
+# =============================
+# SMART PROMPT - PAHAM KONTEKS REPLY
+# =============================
+
+def build_smart_prompt(user_name, history, combined_messages, reply_contexts):
+    """
+    Prompt yang lebih paham konteks percakapan dan reply
     """
     
     # Random panggilan biar variatif
@@ -680,6 +828,14 @@ def build_prompt(user_name, history, user_message):
     if user_name in panggilan:
         nama_panggil = random.choice(panggilan[user_name])
     
+    # Tambah info reply context ke prompt
+    reply_info = ""
+    if reply_contexts:
+        reply_info = "\nKONTEKS REPLY:\n"
+        for ctx in reply_contexts:
+            reply_info += f"• {ctx['reply_to_name']} bilang: \"{ctx['reply_to_message']}\"\n"
+            reply_info += f"  lalu {ctx['sender_name']} reply: \"{ctx['message']}\"\n"
+    
     return f"""LO ADALAH ZAI - TEMEN NGOPI MEREKA DI GRUP
 
 --- KEPRIBADIAN LO ---
@@ -688,6 +844,7 @@ def build_prompt(user_name, history, user_message):
 • Ngobrolnya asik, kadang nanya balik, kadang nimpalin, kadang becanda
 • Bisa panjang bisa pendek, bebas! yg penting nyambung
 • Kalo lagi seru ya panjang, kalo lagi santai ya pendek
+• LO HARUS PAHAM KONTEKS PERCAKAPAN, terutama kalo ada yang saling reply
 
 --- ANAK GRUP ---
 • Rifkyy → panggil "Rif" atau "Rifky" (lo panggil "Rif" aja biar akrab)
@@ -697,11 +854,14 @@ def build_prompt(user_name, history, user_message):
 --- CHAT TERAKHIR DI GRUP ---
 {history}
 
---- PESAN BARU ---
-{nama_panggil}: {user_message}
+--- PESAN-PESAN BARU (BISA LEBIH DARI SATU) ---
+{combined_messages}
+{reply_info}
 
 --- RESPON LO (ZAI) ---
-INGAT: Lo adalah Zai, bukan asisten formal. Lo temen mereka. Langsung jawab aja tanpa pikir panjang. Natural kayak di grup beneran!
+INGAT: Lo adalah Zai, bukan asisten formal. Lo temen mereka. 
+Lo harus PAHAM KONTEKS dari semua pesan di atas, termasuk yang saling reply.
+Jawab dengan NATURAL kayak di grup beneran! Bisa nimpalin semua poin atau fokus ke yang paling penting.
 
 Zai:"""
 
@@ -772,11 +932,11 @@ async def generate_ai_response(prompt):
             response = client_info["client"].chat.completions.create(
                 model="Qwen/Qwen2.5-72B-Instruct",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=temperature,           # Tinggi biar kreatif
-                max_tokens=max_tokens,              # Besar biar bisa panjang
-                top_p=top_p,                         # Variatif
-                presence_penalty=presence_penalty,   # Hindari pengulangan
-                frequency_penalty=frequency_penalty  # Hindari monoton
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty
             )
             
             reply = response.choices[0].message.content
@@ -841,7 +1001,7 @@ async def generate_ai_response(prompt):
 # =============================
 
 HELP_TEXT = """
-**🔰 USTADZ AI - BOT MANAGER** (GAUL EDITION)
+**🔰 USTADZ AI - BOT MANAGER** (SMART GAUL EDITION)
 
 **🤖 Commands untuk Semua User:**
 • `!zai [pesan]` - Ngobrol dengan Zai
@@ -870,6 +1030,14 @@ HELP_TEXT = """
 • `top_p` = 0.95 (variasi)
 • `presence_penalty` = 0.7 (anti ngulang)
 • `frequency_penalty` = 0.7 (anti monoton)
+• `cooldown_seconds` = 2.5 (nunggu sebelum reply)
+• `max_collect_messages` = 3 (max pesan dikumpulin)
+
+**✨ Fitur Baru:**
+• ✅ Paham konteks reply antar user
+• ✅ Nunggu bentar kalo ada pesan lanjutan
+• ✅ Gak reply sticker
+• ✅ Lebih nyambung ngobrolnya
 
 **Contoh GAUL:**
 • `/add_token hf_abc123... token utama`
@@ -908,7 +1076,7 @@ async def status_handler(event):
         status_text = "AKTIF ✅" if bot_status['is_active'] else "NONAKTIF ❌"
         
         message = f"""
-**📊 BOT STATUS - GAUL EDITION**
+**📊 BOT STATUS - SMART GAUL EDITION**
 
 **Bot:**
 • Status: {status_text}
@@ -922,6 +1090,11 @@ async def status_handler(event):
 • Request: {stats['requests_24h']}
 • Sukses: {stats['success_24h']} ({success_rate:.1f}%)
 • Waktu respon: {stats['avg_response']:.2f}s
+
+**Fitur:**
+• ✅ Paham konteks reply
+• ✅ Nunggu pesan lanjutan
+• ✅ Skip sticker
 
 Gunakan `/help` buat liat command.
 """
@@ -1188,7 +1361,9 @@ async def set_handler(event):
         value = event.pattern_match.group(2)
         
         # Validate
-        valid_keys = ['max_history', 'max_response_tokens', 'temperature', 'top_p', 'presence_penalty', 'frequency_penalty']
+        valid_keys = ['max_history', 'max_response_tokens', 'temperature', 'top_p', 
+                      'presence_penalty', 'frequency_penalty', 'cooldown_seconds', 
+                      'max_collect_messages']
         if key not in valid_keys:
             await event.reply(f"❌ Key harus salah satu: {', '.join(valid_keys)}")
             return
@@ -1204,11 +1379,27 @@ async def set_handler(event):
                 await event.reply(f"❌ {key} harus angka")
                 return
         
-        elif key in ['max_history', 'max_response_tokens']:
+        elif key in ['max_history', 'max_response_tokens', 'max_collect_messages']:
             try:
                 val = int(value)
-                if val < 10 or val > 1000:
-                    await event.reply(f"❌ {key} harus antara 10 - 1000")
+                if key == 'max_collect_messages' and (val < 1 or val > 10):
+                    await event.reply(f"❌ {key} harus antara 1 - 10")
+                    return
+                elif key == 'max_history' and (val < 10 or val > 200):
+                    await event.reply(f"❌ {key} harus antara 10 - 200")
+                    return
+                elif key == 'max_response_tokens' and (val < 50 or val > 1000):
+                    await event.reply(f"❌ {key} harus antara 50 - 1000")
+                    return
+            except:
+                await event.reply(f"❌ {key} harus angka")
+                return
+        
+        elif key == 'cooldown_seconds':
+            try:
+                val = float(value)
+                if val < 0.5 or val > 10:
+                    await event.reply(f"❌ {key} harus antara 0.5 - 10 detik")
                     return
             except:
                 await event.reply(f"❌ {key} harus angka")
@@ -1373,7 +1564,7 @@ async def mode_trigger_handler(event):
         await event.reply(f"❌ Error: {str(e)[:100]}")
 
 # =============================
-# MAIN EVENT HANDLER - GAUL VERSION
+# MAIN EVENT HANDLER - SMART VERSION
 # =============================
 
 @client.on(events.NewMessage)
@@ -1413,36 +1604,47 @@ async def message_handler(event):
         user_id = sender.id
         user_name = get_user_name(user_id)
         
+        # Cek apakah ini sticker
+        is_sticker = bool(event.sticker)
+        
         save_user(user_id, user_name)
         message = event.raw_text
         
+        # Kalo sticker, simpan tapi jangan diproses
+        if is_sticker:
+            save_message(event.chat_id, user_id, user_name, "[Sticker]", event.reply_to_msg_id, True)
+            print(f"💬 [{user_name}] mengirim sticker (skip reply)")
+            return
+        
+        # Cek apakah ini reply ke pesan lain
+        reply_context = None
+        if event.reply_to_msg_id:
+            # Ambil pesan yang di-reply
+            reply_to_msg = db.execute(
+                """
+                SELECT name, message FROM messages 
+                WHERE id = %s AND chat_id = %s
+                """,
+                (event.reply_to_msg_id, str(event.chat_id)),
+                fetch="one"
+            )
+            if reply_to_msg:
+                reply_context = {
+                    "reply_to_name": reply_to_msg[0],
+                    "reply_to_message": reply_to_msg[1],
+                    "sender_name": user_name,
+                    "message": message
+                }
+        
+        save_message(event.chat_id, user_id, user_name, message, event.reply_to_msg_id, False)
+        
         print(f"\n💬 [{user_name}] {message}")
+        if reply_context:
+            print(f"   ↳ Reply ke: {reply_context['reply_to_name']}: \"{reply_context['reply_to_message']}\"")
         
-        save_message(event.chat_id, user_id, user_name, message)
+        # Kirim ke smart collector
+        await message_collector.add_message(event, user_name, message, reply_context)
         
-        # Get max_history from settings
-        max_history = int(db.execute(
-            "SELECT value FROM settings WHERE key = 'max_history'",
-            fetch="value"
-        ) or 50)
-        
-        async with client.action(event.chat_id, 'typing'):
-            history = get_last_messages(event.chat_id, max_history)
-            prompt = build_prompt(user_name, history, message)
-            
-            # Debug prompt (optional)
-            # print(f"\n📝 PROMPT:\n{prompt}\n")
-            
-            ai_reply = await generate_ai_response(prompt)
-            
-            save_message(event.chat_id, "AI", "Zai", ai_reply)
-            
-            print(f"🤖 [Zai] {ai_reply}\n")
-            
-            # Random delay biar natural
-            await asyncio.sleep(random.uniform(1, 2))
-            await event.reply(ai_reply)
-            
     except Exception as e:
         print(f"Error in message_handler: {e}")
         traceback.print_exc()
@@ -1497,18 +1699,29 @@ async def health_check():
 
 async def main():
     print("=" * 50)
-    print("🤖 USTADZ AI - GAUL EDITION")
+    print("🤖 USTADZ AI - SMART GAUL EDITION")
     print("=" * 50)
     
     bot_status = get_bot_status()
     mode_text = "AUTO (semua pesan)" if bot_status['auto_reply'] else "TRIGGER (!zai)"
     status_text = "AKTIF" if bot_status['is_active'] else "NONAKTIF"
     
+    cooldown = db.execute(
+        "SELECT value FROM settings WHERE key = 'cooldown_seconds'",
+        fetch="value"
+    ) or "2.5"
+    
+    max_collect = db.execute(
+        "SELECT value FROM settings WHERE key = 'max_collect_messages'",
+        fetch="value"
+    ) or "3"
+    
     print(f"📊 Bot Status: {status_text}")
     print(f"📊 Mode: {mode_text}")
     print(f"📊 Active Tokens: {len(ai_manager.get_active_tokens())}")
     print(f"👑 Admins: {ADMIN_IDS}")
-    print(f"🔥 Settings: Temperature 0.95 | Max Tokens 400")
+    print(f"🔥 Settings: Cooldown {cooldown}s | Max Collect {max_collect}")
+    print(f"✅ Fitur: Paham reply context | Skip sticker | Smart delay")
     print(f"📝 Ketik /help buat liat menu")
     print("=" * 50)
     
