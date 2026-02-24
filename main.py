@@ -110,6 +110,7 @@ class DatabaseManager:
         self.cur = None
         self.connect()
         self.init_tables()
+        self.migrate_tables()  # AUTO MIGRATE!
         self.update_gaul_settings()
     
     def connect(self):
@@ -128,6 +129,79 @@ class DatabaseManager:
             print(f"❌ Database connection error: {e}")
             raise e
     
+    def migrate_tables(self):
+        """Auto migrate tables - nambah kolom yang kurang tanpa ngilangin data"""
+        try:
+            print("🔄 Running database migration...")
+            
+            # 1. CEK & TAMBAH KOLOM DI bot_status
+            self.cur.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='bot_status'
+            """)
+            existing_columns = [row[0] for row in self.cur.fetchall()]
+            
+            if 'current_personality' not in existing_columns:
+                print("➕ Adding current_personality to bot_status...")
+                self.cur.execute("""
+                    ALTER TABLE bot_status 
+                    ADD COLUMN current_personality TEXT DEFAULT 'Si Gaul'
+                """)
+            
+            # 2. CEK & TAMBAH KOLOM DI messages
+            self.cur.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='messages'
+            """)
+            existing_columns = [row[0] for row in self.cur.fetchall()]
+            
+            messages_columns = {
+                'reply_to_name': 'TEXT',
+                'reply_to_message': 'TEXT',
+                'mood': 'TEXT',
+                'topics': 'TEXT[]'
+            }
+            
+            for col, col_type in messages_columns.items():
+                if col not in existing_columns:
+                    print(f"➕ Adding {col} to messages...")
+                    self.cur.execute(f"ALTER TABLE messages ADD COLUMN {col} {col_type}")
+            
+            # 3. CEK & TAMBAH KOLOM DI users
+            self.cur.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='users'
+            """)
+            existing_columns = [row[0] for row in self.cur.fetchall()]
+            
+            users_columns = {
+                'interests': 'TEXT[]',
+                'personality': 'TEXT'
+            }
+            
+            for col, col_type in users_columns.items():
+                if col not in existing_columns:
+                    print(f"➕ Adding {col} to users...")
+                    self.cur.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+            
+            # 4. PASTIKAN DATA DEFAULT ADA
+            self.cur.execute("""
+                INSERT INTO bot_status (id, is_active, auto_reply, current_personality) 
+                VALUES (1, TRUE, FALSE, 'Si Gaul')
+                ON CONFLICT (id) DO UPDATE 
+                SET current_personality = COALESCE(bot_status.current_personality, 'Si Gaul')
+            """)
+            
+            self.conn.commit()
+            print("✅ Database migration completed!")
+            
+        except Exception as e:
+            print(f"⚠️ Migration error (non-critical): {e}")
+            self.conn.rollback()
+    
     def init_tables(self):
         try:
             # Tabel users
@@ -136,13 +210,11 @@ class DatabaseManager:
                 user_id TEXT PRIMARY KEY,
                 name TEXT,
                 is_admin BOOLEAN DEFAULT FALSE,
-                interests TEXT[],
-                personality TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
 
-            # Tabel messages dengan context LENGKAP
+            # Tabel messages
             self.cur.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id SERIAL PRIMARY KEY,
@@ -151,11 +223,7 @@ class DatabaseManager:
                 name TEXT,
                 message TEXT,
                 reply_to_msg_id INTEGER,
-                reply_to_name TEXT,
-                reply_to_message TEXT,
                 is_sticker BOOLEAN DEFAULT FALSE,
-                mood TEXT,
-                topics TEXT[],
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
@@ -202,7 +270,6 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY DEFAULT 1,
                 is_active BOOLEAN DEFAULT TRUE,
                 auto_reply BOOLEAN DEFAULT FALSE,
-                current_personality TEXT DEFAULT 'Si Gaul',
                 updated_by TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -228,7 +295,7 @@ class DatabaseManager:
                 ('current_token_index', '0'),
                 ('cooldown_seconds', '2.0'),
                 ('max_collect_messages', '2'),
-                ('gaul_level', '100')  # 100% GAUL!
+                ('gaul_level', '100')
             ]
             
             for key, value in settings:
@@ -339,26 +406,47 @@ def load_tokens_from_db():
 HF_TOKENS = load_tokens_from_db()
 
 # =============================
-# BOT STATUS
+# BOT STATUS - VERSION DENGAN FALLBACK
 # =============================
 
 def get_bot_status():
+    """Get current bot status dengan fallback kalo kolom belum ada"""
     try:
         try:
             db.conn.rollback()
         except:
             pass
-        row = db.execute(
-            "SELECT is_active, auto_reply, current_personality FROM bot_status WHERE id = 1",
-            fetch="one"
-        )
-        if row:
-            return {
-                "is_active": row[0], 
-                "auto_reply": row[1],
-                "personality": row[2] or "Si Gaul"
-            }
+        
+        # Coba query dengan try-except per kolom
+        try:
+            # Coba ambil semua kolom
+            row = db.execute(
+                "SELECT is_active, auto_reply, current_personality FROM bot_status WHERE id = 1",
+                fetch="one"
+            )
+            if row:
+                return {
+                    "is_active": row[0], 
+                    "auto_reply": row[1],
+                    "personality": row[2] if row[2] else "Si Gaul"
+                }
+        except Exception as e:
+            print(f"⚠️ Full query failed, trying basic: {e}")
+            # Fallback ke query dasar
+            row = db.execute(
+                "SELECT is_active, auto_reply FROM bot_status WHERE id = 1",
+                fetch="one"
+            )
+            if row:
+                return {
+                    "is_active": row[0], 
+                    "auto_reply": row[1],
+                    "personality": "Si Gaul"  # Default
+                }
+        
+        # Kalo belum ada data, return default
         return {"is_active": True, "auto_reply": False, "personality": "Si Gaul"}
+        
     except Exception as e:
         print(f"Error get_bot_status: {e}")
         return {"is_active": True, "auto_reply": False, "personality": "Si Gaul"}
@@ -381,15 +469,31 @@ def set_bot_active(active, updated_by):
 
 def set_bot_personality(personality, updated_by):
     try:
-        db.execute(
-            """
-            UPDATE bot_status 
-            SET current_personality = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = 1
-            """,
-            (personality, str(updated_by)),
-            commit=True
-        )
+        # Coba update dengan kolom current_personality
+        try:
+            db.execute(
+                """
+                UPDATE bot_status 
+                SET current_personality = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = 1
+                """,
+                (personality, str(updated_by)),
+                commit=True
+            )
+        except Exception:
+            # Kalo kolom belum ada, tambahin dulu
+            print("⚠️ Adding current_personality column...")
+            db.execute("ALTER TABLE bot_status ADD COLUMN current_personality TEXT DEFAULT 'Si Gaul'")
+            db.execute(
+                """
+                UPDATE bot_status 
+                SET current_personality = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = 1
+                """,
+                (personality, str(updated_by)),
+                commit=True
+            )
+        
         return get_bot_status()
     except Exception as e:
         print(f"Error set_bot_personality: {e}")
@@ -669,16 +773,30 @@ def get_user_name(user_id):
 def save_user(user_id, name, interests=None, personality=None):
     uid = str(user_id)
     try:
-        db.execute(
-            """
-            INSERT INTO users (user_id, name, interests, personality)
-            VALUES (%s,%s,%s,%s)
-            ON CONFLICT (user_id)
-            DO UPDATE SET name=EXCLUDED.name, interests=EXCLUDED.interests, personality=EXCLUDED.personality
-            """,
-            (uid, name, interests, personality),
-            commit=True
-        )
+        # Coba insert dengan semua kolom
+        try:
+            db.execute(
+                """
+                INSERT INTO users (user_id, name, interests, personality)
+                VALUES (%s,%s,%s,%s)
+                ON CONFLICT (user_id)
+                DO UPDATE SET name=EXCLUDED.name, interests=EXCLUDED.interests, personality=EXCLUDED.personality
+                """,
+                (uid, name, interests, personality),
+                commit=True
+            )
+        except Exception:
+            # Fallback ke insert dasar
+            db.execute(
+                """
+                INSERT INTO users (user_id, name)
+                VALUES (%s,%s)
+                ON CONFLICT (user_id)
+                DO UPDATE SET name=EXCLUDED.name
+                """,
+                (uid, name),
+                commit=True
+            )
     except Exception as e:
         print(f"Error save_user: {e}")
 
@@ -738,7 +856,7 @@ def detect_mood(message):
         return "neutral"
 
 def save_message(chat_id, user_id, name, message, reply_to_msg_id=None, is_sticker=False):
-    """Simpan pesan dengan analisis konteks"""
+    """Simpan pesan dengan analisis konteks - VERSION DENGAN FALLBACK"""
     try:
         mood = detect_mood(message)
         topics = extract_topics(message)
@@ -746,69 +864,115 @@ def save_message(chat_id, user_id, name, message, reply_to_msg_id=None, is_stick
         reply_to_message = None
         
         if reply_to_msg_id:
-            reply_info = db.execute(
-                """
-                SELECT name, message FROM messages 
-                WHERE id = %s AND chat_id = %s
-                """,
-                (reply_to_msg_id, str(chat_id)),
-                fetch="one"
-            )
-            if reply_info:
-                reply_to_name = reply_info[0]
-                reply_to_message = reply_info[1]
+            try:
+                reply_info = db.execute(
+                    """
+                    SELECT name, message FROM messages 
+                    WHERE id = %s AND chat_id = %s
+                    """,
+                    (reply_to_msg_id, str(chat_id)),
+                    fetch="one"
+                )
+                if reply_info:
+                    reply_to_name = reply_info[0]
+                    reply_to_message = reply_info[1]
+            except Exception as e:
+                print(f"Error getting reply info: {e}")
         
-        db.execute(
-            """
-            INSERT INTO messages
-            (chat_id, user_id, name, message, reply_to_msg_id, reply_to_name, reply_to_message, is_sticker, mood, topics)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """,
-            (str(chat_id), str(user_id), name, message, reply_to_msg_id, reply_to_name, reply_to_message, is_sticker, mood, topics),
-            commit=True
-        )
+        # Coba insert dengan semua kolom
+        try:
+            db.execute(
+                """
+                INSERT INTO messages
+                (chat_id, user_id, name, message, reply_to_msg_id, reply_to_name, reply_to_message, is_sticker, mood, topics)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (str(chat_id), str(user_id), name, message, reply_to_msg_id, reply_to_name, reply_to_message, is_sticker, mood, topics),
+                commit=True
+            )
+        except Exception as e:
+            print(f"⚠️ Full insert failed, trying basic insert: {e}")
+            # Fallback ke insert dasar
+            db.execute(
+                """
+                INSERT INTO messages
+                (chat_id, user_id, name, message, reply_to_msg_id, is_sticker)
+                VALUES (%s,%s,%s,%s,%s,%s)
+                """,
+                (str(chat_id), str(user_id), name, message, reply_to_msg_id, is_sticker),
+                commit=True
+            )
     except Exception as e:
         print(f"Error save_message: {e}")
 
 def get_conversation_context(chat_id, limit=30):
     """
-    Ambil konteks percakapan super lengkap
+    Ambil konteks percakapan super lengkap - VERSION DENGAN FALLBACK
     """
     try:
-        rows = db.execute(
-            """
-            SELECT 
-                name, 
-                message, 
-                reply_to_name,
-                reply_to_message,
-                mood,
-                topics,
-                timestamp
-            FROM messages 
-            WHERE chat_id = %s AND is_sticker = FALSE
-            ORDER BY id DESC
-            LIMIT %s
-            """,
-            (str(chat_id), limit),
-            fetch="all"
-        ) or []
+        # Coba query dengan semua kolom
+        try:
+            rows = db.execute(
+                """
+                SELECT 
+                    name, 
+                    message, 
+                    reply_to_name,
+                    reply_to_message,
+                    mood,
+                    topics,
+                    timestamp
+                FROM messages 
+                WHERE chat_id = %s AND is_sticker = FALSE
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (str(chat_id), limit),
+                fetch="all"
+            ) or []
+        except Exception:
+            # Fallback ke query dasar
+            rows = db.execute(
+                """
+                SELECT 
+                    name, 
+                    message,
+                    timestamp
+                FROM messages 
+                WHERE chat_id = %s AND is_sticker = FALSE
+                ORDER BY id DESC
+                LIMIT %s
+                """,
+                (str(chat_id), limit),
+                fetch="all"
+            ) or []
+            
+            # Format tanpa kolom tambahan
+            rows.reverse()
+            return "\n".join([f"{row[0]}: {row[1]}" for row in rows])
         
         rows.reverse()
         
         context_lines = []
         current_topics = set()
         
-        for name, msg, reply_name, reply_msg, mood, topics, ts in rows:
-            if topics:
-                current_topics.update(topics)
-            
-            if reply_name and reply_msg:
-                context_lines.append(f"{name} (membalas {reply_name} yang bilang \"{reply_msg}\"): {msg} [mood: {mood}]")
+        for row in rows:
+            # Handle different row lengths based on what columns exist
+            if len(row) >= 6:
+                name, msg, reply_name, reply_msg, mood, topics = row[:6]
+                if topics:
+                    current_topics.update(topics if topics else [])
+                
+                if reply_name and reply_msg:
+                    context_lines.append(f"{name} (membalas {reply_name} yang bilang \"{reply_msg}\"): {msg} [mood: {mood}]")
+                else:
+                    context_lines.append(f"{name}: {msg} [mood: {mood}]")
             else:
-                context_lines.append(f"{name}: {msg} [mood: {mood}]")
+                # Basic format
+                name, msg = row[:2]
+                context_lines.append(f"{name}: {msg}")
         
-        # Tambahin ringkasan topik
+        # Tambahin ringkasan topik kalo ada
         if current_topics:
             context_lines.insert(0, f"TOPIK YANG DBAHAS: {', '.join(current_topics)}")
         
@@ -1211,6 +1375,7 @@ HELP_TEXT = """
 • ✅ GAUL BANGET - Pake bahasa sehari-hari
 • ✅ SMART DELAY - Nunggu bentar kalo ada pesan lanjutan
 • ✅ SKIP STICKER - Gak bakal reply sticker
+• ✅ AUTO MIGRATION - Otomatis update database
 
 **📝 CONTOH PERCAKAPAN:**
 
@@ -1264,6 +1429,7 @@ async def status_handler(event):
 ✅ Bisa ledek balik
 ✅ Pake bahasa gaul
 ✅ Smart delay 2s
+✅ Auto migration
 
 Ketik /help buat liat command.
 """
@@ -1755,6 +1921,7 @@ async def main():
     print("  • Pake bahasa gaul")
     print("  • Smart delay 2s")
     print("  • 4 personalities")
+    print("  • Auto migration database")
     print("=" * 60)
     print("📝 Ketik /help buat liat menu")
     print("=" * 60)
