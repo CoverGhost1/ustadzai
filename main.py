@@ -1001,7 +1001,7 @@ async def generate_ai_response(prompt):
 # =============================
 
 HELP_TEXT = """
-**🔰 USTADZ AI - BOT MANAGER** (SMART GAUL EDITION)
+**🔰 ZAI - BOT MANAGER**
 
 **🤖 Commands untuk Semua User:**
 • `!zai [pesan]` - Ngobrol dengan Zai
@@ -1023,7 +1023,7 @@ HELP_TEXT = """
 • `/mode trigger` - Mode Trigger (jawab dengan !zai)
 • `/help` - Tampilkan menu ini
 
-**⚙️ Settings GAUL:**
+**⚙️ Settings:**
 • `temperature` = 0.95 (kreativitas)
 • `max_response_tokens` = 400 (panjang maksimal)
 • `max_history` = 50 (ingatan)
@@ -1032,14 +1032,6 @@ HELP_TEXT = """
 • `frequency_penalty` = 0.7 (anti monoton)
 • `cooldown_seconds` = 2.5 (nunggu sebelum reply)
 • `max_collect_messages` = 3 (max pesan dikumpulin)
-
-**✨ Fitur Baru:**
-• ✅ Paham konteks reply antar user
-• ✅ Nunggu bentar kalo ada pesan lanjutan
-• ✅ Gak reply sticker
-• ✅ Lebih nyambung ngobrolnya
-
-**Contoh GAUL:**
 • `/add_token hf_abc123... token utama`
 • `/set temperature 0.9`
 """
@@ -1090,11 +1082,6 @@ async def status_handler(event):
 • Request: {stats['requests_24h']}
 • Sukses: {stats['success_24h']} ({success_rate:.1f}%)
 • Waktu respon: {stats['avg_response']:.2f}s
-
-**Fitur:**
-• ✅ Paham konteks reply
-• ✅ Nunggu pesan lanjutan
-• ✅ Skip sticker
 
 Gunakan `/help` buat liat command.
 """
