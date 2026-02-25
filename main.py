@@ -70,30 +70,27 @@ ZAI_PERSONALITIES = [
 GRUP_MEMBERS = {
     "Rifkyy": {
         "user_id": "8229304441",
-        "panggilan": ["Rif", "Rifky", "bro", "bang", "cuy", "Rifkyy"],
-        "hobi": ["sepak bola","film", "ngeledek", "ngerandom"],
-        "sifat": "suka becanda, hobi ngomongin film, kalo lagi nonton bola bisa sampe lupa waktu",
-        "kebiasaan": "suka manggil orang pake 'bro', 'bang', suka ledek duluan",
-        "topik_favorit": ["random", "film", "game", "teknologi"],
-        "cara_bicara": "cepat, suka pake kata 'wkwk', 'bro', 'sih'"
+        "panggilan": ["Rif", "Rifky", "bro", "bang"],
+        "hobi": ["Marvel", "ngeledek"],
+        "sifat": "suka becanda, suka Marvel"
     },
     "Adell": {
         "user_id": "6876331769",
-        "panggilan": ["Del", "Adel", "sis", "cuy", "Princess", "Del"],
-        "hobi": ["sibuk", "tugas", "sekolah", "ngemil", "random"],
-        "sifat": "cewek kece, sering sibuk, suka random tiba-tiba",
-        "kebiasaan": "suka tiba-tiba ngetik random, suka minta dipanggil princess",
-        "topik_favorit": ["tugas", "sekolah", "makanan", "random"],
-        "cara_bicara": "suka dibuat kesel dan pake huruf besar, suka ngetik pake huruf diulang (ZAIIII, GATAU AH)"
+        "panggilan": ["Del", "Adel", "sis", "Princess"],
+        "hobi": ["ngemil", "random"],
+        "sifat": "random, suka ngetik pake huruf besar"
+    },
+    "Dwayne John": {
+        "user_id": "unknown",
+        "panggilan": ["John", "Dwayne"],
+        "hobi": ["ngetik zai doang"],
+        "sifat": "suka manggil zai doang"
     },
     "Zai": {
         "user_id": "BOT",
-        "panggilan": ["Zai", "gue", "gw", "saya"],
-        "hobi": ["ngobrol", "ledek-ledekan", "nongkrong", "baperin orang"],
-        "sifat": "random, gaul, suka ngegas, paham konteks",
-        "kebiasaan": "suka ngledek balik, paham kalo lagi di-reply",
-        "topik_favorit": ["semua topik"],
-        "cara_bicara": "gaul, pake bahasa sehari-hari, suka pake 'wkwk', 'sih', 'deh'"
+        "panggilan": ["Zai", "gue"],
+        "hobi": ["ngobrol"],
+        "sifat": "gaul, paham konteks"
     }
 }
 
@@ -190,7 +187,7 @@ class DatabaseManager:
                 'mentioned_users': 'TEXT[]',
                 'is_question': 'BOOLEAN DEFAULT FALSE',
                 'is_teasing': 'BOOLEAN DEFAULT FALSE',
-                'message_type': 'TEXT',  # 'normal', 'reply', 'mention', 'call'
+                'message_type': 'TEXT',
                 'context_before': 'TEXT',
                 'context_after': 'TEXT'
             }
@@ -382,32 +379,41 @@ class DatabaseManager:
             print(f"❌ Table initialization error: {e}")
             self.conn.rollback()
     
-   def update_settings(self):
-    try:
-        settings = [
-            ('temperature', '0.9'),  # Naikin biar lebih kreatif
-            ('max_response_tokens', '200'),  # Naikin
-            ('max_history', '20'),
-            ('top_p', '0.92'),
-            ('cooldown_seconds', '1.2'),  # Turunin dikit
-            ('max_collect_messages', '2'),
-            ('validation_strictness', 'low'),  # Tambahin setting validasi
-        ]
-        
-        for key, value in settings:
-            self.cur.execute("""
-                INSERT INTO settings (key, value) 
-                VALUES (%s, %s)
-                ON CONFLICT (key) DO UPDATE 
-                SET value = EXCLUDED.value
-            """, (key, value))
-        
-        self.conn.commit()
-        print("✅ SANTAI MODE settings applied!")
-        
-    except Exception as e:
-        print(f"Error updating settings: {e}")
-        self.conn.rollback()
+    def update_settings(self):
+        """Update settings dengan mode santai"""
+        try:
+            settings = [
+                ('temperature', '0.9'),
+                ('max_response_tokens', '200'),
+                ('max_history', '20'),
+                ('top_p', '0.92'),
+                ('presence_penalty', '0.5'),
+                ('frequency_penalty', '0.5'),
+                ('auto_reply_mode', 'false'),
+                ('current_token_index', '0'),
+                ('cooldown_seconds', '1.2'),
+                ('max_collect_messages', '2'),
+                ('context_depth', '20'),
+                ('reply_understanding', 'true'),
+                ('validation_strictness', 'low'),
+                ('max_words', '50'),
+                ('call_max_words', '15')
+            ]
+            
+            for key, value in settings:
+                self.cur.execute("""
+                    INSERT INTO settings (key, value) 
+                    VALUES (%s, %s)
+                    ON CONFLICT (key) DO UPDATE 
+                    SET value = EXCLUDED.value
+                """, (key, value))
+            
+            self.conn.commit()
+            print("✅ SANTAI MODE settings applied!")
+            
+        except Exception as e:
+            print(f"Error updating settings: {e}")
+            self.conn.rollback()
     
     def execute(self, query, params=None, commit=False, fetch=False):
         max_retries = 3
@@ -1053,8 +1059,8 @@ def get_conversation_thread(chat_id, limit=30):
             msg_data = {
                 "speaker": row[0],
                 "message": row[1],
-                "reply_to_name": row[2] or row[10],  # reply_to_name atau replied_to_name
-                "reply_to_message": row[3] or row[11],  # reply_to_message atau replied_to_message
+                "reply_to_name": row[2] or row[10],
+                "reply_to_message": row[3] or row[11],
                 "mood": row[4],
                 "topics": row[5],
                 "is_question": row[6],
@@ -1078,10 +1084,10 @@ def format_conversation_for_prompt(conversation):
     for i, msg in enumerate(conversation[-15:]):  # Ambil 15 pesan terakhir
         if msg["reply_to_name"]:
             # Ini adalah reply
-            lines.append(f"[{msg['time']}] {msg['speaker']} → (ngebales {msg['reply_to_name']} yang bilang \"{msg['reply_to_message'][:50]}\"): {msg['message']}")
+            lines.append(f"[{msg['time']}] {msg['speaker']} → (ngebales {msg['reply_to_name']}): {msg['message'][:50]}")
         else:
             # Bukan reply
-            lines.append(f"[{msg['time']}] {msg['speaker']}: {msg['message']}")
+            lines.append(f"[{msg['time']}] {msg['speaker']}: {msg['message'][:50]}")
     
     return "\n".join(lines)
 
@@ -1091,8 +1097,7 @@ def detect_conversation_patterns(conversation):
         "is_ongoing_teasing": False,
         "current_topic": "random",
         "who_is_active": [],
-        "reply_chains": [],
-        "questions_unanswered": []
+        "reply_chains": []
     }
     
     # Deteksi ledekan berantai
@@ -1111,13 +1116,6 @@ def detect_conversation_patterns(conversation):
     for msg in conversation[-10:]:
         active_users[msg["speaker"]] = active_users.get(msg["speaker"], 0) + 1
     patterns["who_is_active"] = [user for user, count in sorted(active_users.items(), key=lambda x: x[1], reverse=True)][:3]
-    
-    # Deteksi reply chains
-    chains = []
-    for i, msg in enumerate(conversation):
-        if msg["reply_to_name"]:
-            chains.append(f"{msg['speaker']} ngebales {msg['reply_to_name']}")
-    patterns["reply_chains"] = chains[-5:]  # 5 reply chain terakhir
     
     return patterns
 
@@ -1152,33 +1150,19 @@ def save_message_with_context(chat_id, user_id, name, message, reply_to_msg_id=N
                 reply_chain_id = reply_info[3] or f"thread_{reply_to_msg_id}"
                 reply_depth = (reply_info[4] or 0) + 1
         
-        # Dapatkan konteks sebelum
-        context_before = db.execute(
-            """
-            SELECT message FROM messages 
-            WHERE chat_id = %s AND id < (SELECT COALESCE(MAX(id), 0) FROM messages)
-            ORDER BY id DESC LIMIT 3
-            """,
-            (str(chat_id),),
-            fetch="all"
-        )
-        context_before = [row[0] for row in context_before] if context_before else []
-        
         # Simpan message
         db.execute(
             """
             INSERT INTO messages
             (chat_id, user_id, name, message, reply_to_msg_id, reply_chain_id, reply_depth,
              reply_to_name, reply_to_message, reply_to_user_id, is_sticker,
-             mood, topics, mentioned_users, is_question, is_teasing, message_type,
-             context_before)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+             mood, topics, mentioned_users, is_question, is_teasing, message_type)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (str(chat_id), str(user_id), name, message, reply_to_msg_id, reply_chain_id, reply_depth,
              reply_to_name, reply_to_message, reply_to_user_id, is_sticker,
              analysis["mood"], analysis["topics"], analysis["mentioned_users"],
-             analysis["is_question"], analysis["is_teasing"], analysis["type"],
-             str(context_before)),
+             analysis["is_question"], analysis["is_teasing"], analysis["type"]),
             commit=True
         )
         
@@ -1186,7 +1170,7 @@ def save_message_with_context(chat_id, user_id, name, message, reply_to_msg_id=N
         msg_id = db.execute("SELECT LASTVAL()", fetch="value")
         
         # Simpan reply relationship
-        if reply_to_msg_id:
+        if reply_to_msg_id and msg_id:
             db.execute(
                 """
                 INSERT INTO reply_relationships
@@ -1194,24 +1178,6 @@ def save_message_with_context(chat_id, user_id, name, message, reply_to_msg_id=N
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (msg_id, reply_to_msg_id, str(chat_id), str(user_id), reply_to_user_id, reply_depth, reply_chain_id),
-                commit=True
-            )
-        
-        # Update conversation thread
-        if reply_chain_id:
-            db.execute(
-                """
-                INSERT INTO conversation_threads (thread_id, chat_id, started_by, topic, participants)
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT (thread_id) DO UPDATE
-                SET last_message_at = CURRENT_TIMESTAMP,
-                    message_count = conversation_threads.message_count + 1,
-                    participants = array(
-                        SELECT DISTINCT unnest(conversation_threads.participants || %s)
-                    )
-                """,
-                (reply_chain_id, str(chat_id), str(user_id), analysis["topics"][0] if analysis["topics"] else "random",
-                 [name], [name]),
                 commit=True
             )
         
@@ -1230,8 +1196,6 @@ class SmartMessageCollector:
         self.pending_messages = []
         self.processing = False
         self.lock = asyncio.Lock()
-        self.last_message_time = {}
-        self.conversation_memory = {}
     
     async def add_message(self, event, sender_name, message_text, reply_context=None, msg_analysis=None):
         async with self.lock:
@@ -1243,7 +1207,7 @@ class SmartMessageCollector:
     
     async def process_messages(self):
         try:
-            cooldown = float(db.get_setting('cooldown_seconds', '1.5'))
+            cooldown = float(db.get_setting('cooldown_seconds', '1.2'))
             max_messages = int(db.get_setting('max_collect_messages', '2'))
             
             await asyncio.sleep(cooldown)
@@ -1267,25 +1231,21 @@ class SmartMessageCollector:
                 if analysis:
                     all_analysis.append(analysis)
                     
+                    msg_data = {
+                        "sender": sender,
+                        "message": msg,
+                        "type": analysis.get("type", "normal"),
+                        "is_teasing": analysis.get("is_teasing", False)
+                    }
+                    
                     if reply_ctx:
-                        conversation_flow.append({
-                            "sender": sender,
-                            "message": msg,
-                            "type": "reply",
-                            "reply_to": reply_ctx.get("reply_to_name"),
-                            "reply_message": reply_ctx.get("reply_to_message"),
-                            "mood": analysis.get("mood"),
-                            "topics": analysis.get("topics")
-                        })
+                        msg_data["reply_to"] = reply_ctx.get("reply_to_name")
+                    
+                    conversation_flow.append(msg_data)
+                    
+                    if reply_ctx:
                         all_reply_contexts.append(reply_ctx)
-                    else:
-                        conversation_flow.append({
-                            "sender": sender,
-                            "message": msg,
-                            "type": "normal",
-                            "mood": analysis.get("mood"),
-                            "topics": analysis.get("topics")
-                        })
+                    
                     events.append(event)
             
             last_event = events[-1] if events else None
@@ -1308,7 +1268,7 @@ class SmartMessageCollector:
             user_name = get_user_name(user_id)
             
             bot_status = get_bot_status()
-            context_depth = bot_status.get("context_depth", 30)
+            context_depth = bot_status.get("context_depth", 20)
             
             async with client.action(event.chat_id, 'typing'):
                 # Ambil seluruh konteks percakapan
@@ -1336,7 +1296,6 @@ class SmartMessageCollector:
                 
                 print(f"\n📝=== SUPER CONTEXT PROMPT ===")
                 print(f"Personality: {personality['name']}")
-                print(f"Pola: {patterns}")
                 print(f"Flow: {conversation_flow}")
                 print(f"========================\n")
                 
@@ -1358,7 +1317,7 @@ class SmartMessageCollector:
                 print(f"🤖 [Zai] {ai_reply}\n")
                 
                 # Random delay biar natural
-                delay = random.uniform(0.8, 1.8)
+                delay = random.uniform(0.5, 1.5)
                 await asyncio.sleep(delay)
                 await event.reply(ai_reply)
                 
@@ -1369,7 +1328,7 @@ class SmartMessageCollector:
 message_collector = SmartMessageCollector()
 
 # =============================
-# SUPER CONTEXT PROMPT ENGINE
+# SUPER CONTEXT PROMPT ENGINE - VERSI GAUL
 # =============================
 
 def build_context_aware_prompt(current_user, conversation_history, new_messages, reply_contexts, analyses, patterns, personality):
@@ -1432,7 +1391,7 @@ Contoh: {personality['examples']}
 • Dwayne John: Suka ngetik "zai" doang
 
 === PESAN SEBELUMNYA ===
-{conversation_history[-15:] if conversation_history else "(belum ada)"}
+{conversation_history}
 
 === PESAN BARU ===
 {chr(10).join([f"{msg['sender']}: {msg['message']}" for msg in new_messages])}
@@ -1449,15 +1408,15 @@ RESPON LO (ZAI):
 """
 
 # =============================
-# AI RESPONSE GENERATOR - VERSI CONTEXT AWARE
+# AI RESPONSE GENERATOR - VERSI VALIDASI SANTAI
 # =============================
 
-aasync def generate_context_aware_response(prompt, conversation_flow, user_name, retry=False):
+async def generate_context_aware_response(prompt, conversation_flow, user_name, retry=False):
     """Generate response dengan validasi - VERSI SANTAI"""
     max_retries = 3 if not retry else 2
     
-    temperature = float(db.get_setting('temperature', '0.9'))  # Naikin dikit
-    max_tokens = int(db.get_setting('max_response_tokens', '200'))  # Naikin
+    temperature = float(db.get_setting('temperature', '0.9'))
+    max_tokens = int(db.get_setting('max_response_tokens', '200'))
     
     for attempt in range(max_retries):
         try:
@@ -1518,7 +1477,9 @@ def validate_reply_with_context(reply, conversation_flow, user_name):
         "ada yang ingin kamu ceritakan",
         "ada yang mau diceritain",
         "saya siap mendengarkan",
-        "gue siap dengerin"
+        "gue siap dengerin",
+        "hai, ada yang bisa",
+        "halo, ada yang bisa"
     ]
     
     reply_lower = reply.lower()
@@ -1529,43 +1490,23 @@ def validate_reply_with_context(reply, conversation_flow, user_name):
             print(f"❌ Reply mengandung CS mode: '{phrase}'")
             return None
     
-    # Kata-kata yang MASIH BOLEH asal konteksnya bener
-    # Contoh: "cerita" boleh kalo lagi pada cerita
-    # Tapi kalo tiba-tiba nanya "ada cerita?" itu yang salah
-    
     # Cek panjang reply
+    max_words = int(db.get_setting('max_words', '50'))
     words = reply.split()
-    if len(words) > 50:  # Naikin jadi 50 kata
-        print(f"❌ Reply kepanjangan ({len(words)} kata) > 50")
-        # Kalo kepanjangan, potong aja jangan langsung reject
+    if len(words) > max_words:
+        print(f"⚠️ Reply kepanjangan ({len(words)} kata), dipotong")
         reply = " ".join(words[:45]) + "..."
-        print(f"✂️ Dipotong jadi {len(reply.split())} kata")
     
-    # Kalo dipanggil doang, harus singkat TAPI jangan terlalu strict
+    # Kalo dipanggil doang, kasih warning tapi gak reject
     is_just_call = False
     if len(conversation_flow) == 1:
         msg_text = conversation_flow[0].get("message", "").lower().strip()
-        is_just_call = re.search(r'^za+i+!*$', msg_text) or msg_text in ["zai", "zaii", "zaiii", "zay"]
+        is_just_call = re.search(r'za+i+', msg_text) and len(msg_text.split()) <= 2
     
     if is_just_call:
-        if len(words) > 15:  # Naikin jadi 15 kata
-            print(f"⚠️ Reply agak panjang buat manggil doang ({len(words)} kata), tapi gpp")
-            # Tetep allowed, cuma kasih warning doang
-    
-    # Cek kalo ada ledekan, HARUS ledek balik? Nggak juga, santuy aja
-    is_teasing = False
-    for msg in conversation_flow:
-        if isinstance(msg, dict) and msg.get("is_teasing"):
-            is_teasing = True
-            break
-    
-    if is_teasing:
-        teasing_words = ["wle", "ledek", "hush", "cis", "ciah", "wkwk", "haha", "hehe"]
-        has_teasing_response = any(word in reply_lower for word in teasing_words)
-        
-        if not has_teasing_response and len(words) > 10:
-            print(f"⚠️ Lagi ledekan tapi reply gak ada teasing words, tapi gapapa")
-            # Jangan reject, cuma kasih warning
+        call_max_words = int(db.get_setting('call_max_words', '15'))
+        if len(words) > call_max_words:
+            print(f"⚠️ Reply agak panjang buat manggil doang ({len(words)} kata), tapi gapapa")
     
     # Bersihin reply dari sisa-sisa formatting
     reply = re.sub(r'\[\s*\w+\s*\]', '', reply)  # Hapus [mood: happy]
@@ -1583,7 +1524,7 @@ def get_fallback_reply(conversation_flow, user_name):
     
     if not conversation_flow:
         return random.choice([
-            "Wkwk", "Lah", "Njir", "Santuy", "Gaskeun", "Wle"
+            "Wkwk", "Lah", "Njir", "Santuy", "Gaskeun", "Wle", "Hush", "Cis"
         ])
     
     last_msg = conversation_flow[-1] if conversation_flow else {}
@@ -1591,7 +1532,7 @@ def get_fallback_reply(conversation_flow, user_name):
     last_text = last_msg.get("message", "").lower()
     
     # Deteksi kalo manggil doang (lebih fleksibel)
-    if re.search(r'za+i+', last_text) and len(last_text.split()) <= 2:
+    if re.search(r'za+i+', last_text) and len(last_text.split()) <= 3:
         return random.choice([
             "Ngapain?",
             "Apaan?",
@@ -1599,7 +1540,8 @@ def get_fallback_reply(conversation_flow, user_name):
             "Lah?",
             "Hm?",
             "Kenapa?",
-            "Iya?"
+            "Iya?",
+            "Manggil?"
         ])
     
     # Deteksi ledekan (lebih luas)
@@ -1642,7 +1584,9 @@ def get_fallback_reply(conversation_flow, user_name):
         "Gitu aja ribet",
         "Ah masa?",
         "Oalah",
-        "Waduh"
+        "Waduh",
+        "Gatau dah",
+        "Random amat"
     ])
 
 # =============================
@@ -1677,8 +1621,7 @@ HELP_TEXT = """
 • ✅ PAHAM KONTEKS - Ngerti kalo lagi ledekan atau nanya
 • ✅ BALAS SESUAI - Kalo dipanggil doang, balas singkat
 • ✅ GAK FORMAL - Bukan customer service!
-• ✅ INGAT POLA - Tau kebiasaan tiap user
-• ✅ AUTO MIGRATION - Database update otomatis
+• ✅ VALIDASI SANTAI - Gak gampang reject
 
 **📝 CONTOH:**
 • User: "zai" → Zai: "Ngapain?"
@@ -1727,7 +1670,7 @@ async def status_handler(event):
 **Fitur Aktif:**
 ✅ Paham reply chain
 ✅ Balas sesuai konteks
-✅ Gak formal kayak CS
+✅ Validasi santai
 ✅ Auto migration
 
 Ketik /help buat liat command.
@@ -1962,7 +1905,7 @@ async def set_handler(event):
         
         valid_keys = ['max_history', 'max_response_tokens', 'temperature', 'top_p', 
                       'presence_penalty', 'frequency_penalty', 'cooldown_seconds', 
-                      'max_collect_messages', 'context_depth']
+                      'max_collect_messages', 'context_depth', 'max_words', 'call_max_words']
         
         if key not in valid_keys:
             await event.reply(f"❌ Key harus: {', '.join(valid_keys)}")
@@ -1974,10 +1917,10 @@ async def set_handler(event):
             if val < 0.0 or val > 1.0:
                 await event.reply(f"❌ {key} harus antara 0.0 - 1.0")
                 return
-        elif key in ['max_history', 'max_response_tokens', 'max_collect_messages', 'context_depth']:
+        elif key in ['max_history', 'max_response_tokens', 'max_collect_messages', 'context_depth', 'max_words', 'call_max_words']:
             val = int(value)
-            if val < 1 or val > 100:
-                await event.reply(f"❌ {key} harus 1-100")
+            if val < 1 or val > 200:
+                await event.reply(f"❌ {key} harus 1-200")
                 return
         
         db.execute(
@@ -2202,22 +2145,23 @@ async def main():
     mode_text = "AUTO" if bot_status['auto_reply'] else "TRIGGER"
     status_text = "AKTIF" if bot_status['is_active'] else "NONAKTIF"
     
-    cooldown = db.get_setting('cooldown_seconds', '1.5')
+    cooldown = db.get_setting('cooldown_seconds', '1.2')
+    max_words = db.get_setting('max_words', '50')
     
     print(f"📊 Status: {status_text} | Mode: {mode_text}")
     print(f"📊 Personality: {bot_status['personality']}")
     print(f"📊 Context Depth: {bot_status['context_depth']} messages")
+    print(f"📊 Max Words: {max_words}")
     print(f"📊 Token Aktif: {len(ai_manager.get_active_tokens())}")
     print(f"📊 Cooldown: {cooldown}s")
     print(f"👑 Admins: {ADMIN_IDS}")
     print("=" * 70)
     print("✅ FITUR CONTEXT AWARE AKTIF:")
-    print("  • 🧠 Paham reply chain - tau siapa ngebales siapa")
-    print("  • 🔗 Ngerti konteks percakapan antar user")
-    print("  • 🎯 Balas sesuai - kalo dipanggil doang balas singkat")
-    print("  • 😤 Bisa ledek balik - kalo dieledek, dilawan")
-    print("  • 📝 Gak formal - bukan customer service")
-    print("  • 🔄 Auto migration database")
+    print("  • 🧠 Paham reply chain")
+    print("  • 🔗 Ngerti konteks percakapan")
+    print("  • 🎯 Balas sesuai konteks")
+    print("  • 😤 Bisa ledek balik")
+    print("  • 📝 Validasi SANTAI (gak gampang reject)")
     print("=" * 70)
     print("📝 Ketik /help buat liat menu")
     print("=" * 70)
