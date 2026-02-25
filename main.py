@@ -43,55 +43,72 @@ MAX_COLLECT_MESSAGES = 3  # Max pesan yang dikumpulin sebelum reply
 ZAI_PERSONALITIES = [
     {
         "name": "Si Gaul",
-        "style": "santuy abis, suka pake kata 'sih', 'deh', 'dong'",
-        "examples": "Wkwk santuy aja bro, lu tuh kebanyakan mikir sih"
+        "style": "santuy, suka pake kata 'sih', 'deh', 'dong'",
+        "examples": "Wkwk santuy aja, lu tuh kebanyakan mikir sih"
     },
     {
         "name": "Si Tukang Ledek",
-        "style": "hobi ngegas dan ledek balik",
-        "examples": "Wle? lu kalo dieledek malah makin polos Rif, kayak Groot kena air wkwk"
+        "style": "hobi ngegas dan ledek balik, suka pake 'wle', 'hush'",
+        "examples": "Wle? lu kalo dieledek malah tambah polos, kayak Groot kena air wkwk"
     },
     {
         "name": "Si Random",
-        "style": "suka ngelantur tapi masih nyambung",
-        "examples": "Ngaco lu, tapi ngangenin wkwk"
+        "style": "suka ngelantur tapi masih nyambung, suka pake analogi random",
+        "examples": "Ngaco lu, tapi ngangenin wkwk. Lu tuh kayak WiFi, suka ilang kalo lagi penting"
     },
     {
         "name": "Si Ngegas",
-        "style": "cepat nanggepin dan suka ikutan seru",
-        "examples": "Nah itu dia! Gw juga mikir gitu dari tadi"
+        "style": "cepat nanggepin, suka ikutan seru, pake 'nah', 'tuh kan', 'udah gue bilang'",
+        "examples": "Nah itu dia! Gw juga mikir gitu dari tadi. Kyknya lu baca pikiran gw"
     }
 ]
 
-# Fakta-fakta tentang anggota grup (buat konteks)
-GRUP_FACTS = {
+# =============================
+# GRUP MEMBERS DATABASE (LENGKAP)
+# =============================
+
+GRUP_MEMBERS = {
     "Rifkyy": {
-        "hobi": ["Marvel", "Avenger", "film", "ngeledek"],
-        "sifat": "suka becanda, hobi ngomongin film",
-        "panggilan": ["Rif", "Rifky", "bro", "bang", "cuy"]
+        "user_id": "8229304441",
+        "panggilan": ["Rif", "Rifky", "bro", "bang", "cuy", "Rifkyy"],
+        "hobi": ["sepak bola","film", "ngeledek", "ngerandom"],
+        "sifat": "suka becanda, hobi ngomongin film, kalo lagi nonton bola bisa sampe lupa waktu",
+        "kebiasaan": "suka manggil orang pake 'bro', 'bang', suka ledek duluan",
+        "topik_favorit": ["random", "film", "game", "teknologi"],
+        "cara_bicara": "cepat, suka pake kata 'wkwk', 'bro', 'sih'"
     },
     "Adell": {
-        "hobi": ["sibuk", "tugas", "kuliah", "ngemil"],
-        "sifat": "cewek kece, sering sibuk",
-        "panggilan": ["Del", "Adel", "sis", "cuy"]
+        "user_id": "6876331769",
+        "panggilan": ["Del", "Adel", "sis", "cuy", "Princess", "Del"],
+        "hobi": ["sibuk", "tugas", "sekolah", "ngemil", "random"],
+        "sifat": "cewek kece, sering sibuk, suka random tiba-tiba",
+        "kebiasaan": "suka tiba-tiba ngetik random, suka minta dipanggil princess",
+        "topik_favorit": ["tugas", "sekolah", "makanan", "random"],
+        "cara_bicara": "suka dibuat kesel dan pake huruf besar, suka ngetik pake huruf diulang (ZAIIII, GATAU AH)"
     },
     "Zai": {
-        "hobi": ["ngobrol", "ledek-ledekan", "nongkrong"],
-        "sifat": "random, gaul, suka ngegas",
-        "panggilan": ["Zai", "gue", "gw"]
+        "user_id": "BOT",
+        "panggilan": ["Zai", "gue", "gw", "saya"],
+        "hobi": ["ngobrol", "ledek-ledekan", "nongkrong", "baperin orang"],
+        "sifat": "random, gaul, suka ngegas, paham konteks",
+        "kebiasaan": "suka ngledek balik, paham kalo lagi di-reply",
+        "topik_favorit": ["semua topik"],
+        "cara_bicara": "gaul, pake bahasa sehari-hari, suka pake 'wkwk', 'sih', 'deh'"
     }
 }
 
 # =============================
-# GAUL WORDS DATABASE
+# GAUL WORDS DATABASE (LENGKAP)
 # =============================
 
 GAUL_EXPRESSIONS = {
-    "terkejut": ["waduh", "anjir", "astaga", "ya ampun", "lah", "eh"],
-    "tertawa": ["wkwk", "wkwkwk", "haha", "hehe", "huhu"],
-    "penegas": ["sih", "deh", "dong", "lah", "yah", "nah"],
-    "singkatan": ["bgt", "btw", "otw", "wkwk", "lol", "gas"],
-    "santai": ["santuy", "santai aja", "gaskeun", "mantul", "sip"]
+    "terkejut": ["waduh", "anjir", "astaga", "ya ampun", "lah", "eh", "njir", "gila", "wle", "bruh"],
+    "tertawa": ["wkwk", "wkwkwk", "haha", "hehe", "huhu", "xixixi", "awokawok"],
+    "penegas": ["sih", "deh", "dong", "lah", "yah", "nah", "tuh", "kok"],
+    "singkatan": ["bgt", "btw", "otw", "wkwk", "lol", "gas", "wle", "njir"],
+    "santai": ["santuy", "santai aja", "gaskeun", "mantul", "sip", "amannya"],
+    "ledekan": ["wle", "hush", "cis", "ciah", "ih", "uee"],
+    "panggilan": ["bro", "bang", "sis", "cuy", "broh", "gan"]
 }
 
 # =============================
@@ -110,8 +127,8 @@ class DatabaseManager:
         self.cur = None
         self.connect()
         self.init_tables()
-        self.migrate_tables()  # AUTO MIGRATE!
-        self.update_gaul_settings()
+        self.migrate_tables()
+        self.update_settings()
     
     def connect(self):
         try:
@@ -130,9 +147,9 @@ class DatabaseManager:
             raise e
     
     def migrate_tables(self):
-        """Auto migrate tables - nambah kolom yang kurang tanpa ngilangin data"""
+        """Auto migrate tables - tambah kolom untuk pemahaman konteks"""
         try:
-            print("🔄 Running database migration...")
+            print("🔄 Running database migration for CONTEXT UNDERSTANDING...")
             
             # 1. CEK & TAMBAH KOLOM DI bot_status
             self.cur.execute("""
@@ -142,14 +159,18 @@ class DatabaseManager:
             """)
             existing_columns = [row[0] for row in self.cur.fetchall()]
             
-            if 'current_personality' not in existing_columns:
-                print("➕ Adding current_personality to bot_status...")
-                self.cur.execute("""
-                    ALTER TABLE bot_status 
-                    ADD COLUMN current_personality TEXT DEFAULT 'Si Gaul'
-                """)
+            columns_to_add = {
+                'current_personality': 'TEXT DEFAULT "Si Gaul"',
+                'context_depth': 'INTEGER DEFAULT 30',
+                'reply_understanding': 'BOOLEAN DEFAULT TRUE'
+            }
             
-            # 2. CEK & TAMBAH KOLOM DI messages
+            for col, col_type in columns_to_add.items():
+                if col not in existing_columns:
+                    print(f"➕ Adding {col} to bot_status...")
+                    self.cur.execute(f"ALTER TABLE bot_status ADD COLUMN {col} {col_type}")
+            
+            # 2. CEK & TAMBAH KOLOM DI messages UNTUK PEMAHAMAN REPLY CHAIN
             self.cur.execute("""
                 SELECT column_name 
                 FROM information_schema.columns 
@@ -158,10 +179,20 @@ class DatabaseManager:
             existing_columns = [row[0] for row in self.cur.fetchall()]
             
             messages_columns = {
+                'reply_chain_id': 'TEXT',
+                'reply_depth': 'INTEGER DEFAULT 0',
                 'reply_to_name': 'TEXT',
                 'reply_to_message': 'TEXT',
+                'reply_to_user_id': 'TEXT',
+                'conversation_thread': 'TEXT',
                 'mood': 'TEXT',
-                'topics': 'TEXT[]'
+                'topics': 'TEXT[]',
+                'mentioned_users': 'TEXT[]',
+                'is_question': 'BOOLEAN DEFAULT FALSE',
+                'is_teasing': 'BOOLEAN DEFAULT FALSE',
+                'message_type': 'TEXT',  # 'normal', 'reply', 'mention', 'call'
+                'context_before': 'TEXT',
+                'context_after': 'TEXT'
             }
             
             for col, col_type in messages_columns.items():
@@ -169,34 +200,48 @@ class DatabaseManager:
                     print(f"➕ Adding {col} to messages...")
                     self.cur.execute(f"ALTER TABLE messages ADD COLUMN {col} {col_type}")
             
-            # 3. CEK & TAMBAH KOLOM DI users
+            # 3. Tabel untuk menyimpan conversation threads
             self.cur.execute("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name='users'
+            CREATE TABLE IF NOT EXISTS conversation_threads (
+                thread_id TEXT PRIMARY KEY,
+                chat_id TEXT,
+                started_by TEXT,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                topic TEXT,
+                participants TEXT[],
+                message_count INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE
+            )
             """)
-            existing_columns = [row[0] for row in self.cur.fetchall()]
             
-            users_columns = {
-                'interests': 'TEXT[]',
-                'personality': 'TEXT'
-            }
-            
-            for col, col_type in users_columns.items():
-                if col not in existing_columns:
-                    print(f"➕ Adding {col} to users...")
-                    self.cur.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
-            
-            # 4. PASTIKAN DATA DEFAULT ADA
+            # 4. Tabel untuk reply relationships
             self.cur.execute("""
-                INSERT INTO bot_status (id, is_active, auto_reply, current_personality) 
-                VALUES (1, TRUE, FALSE, 'Si Gaul')
+            CREATE TABLE IF NOT EXISTS reply_relationships (
+                id SERIAL PRIMARY KEY,
+                message_id INTEGER,
+                reply_to_message_id INTEGER,
+                chat_id TEXT,
+                user_id TEXT,
+                reply_to_user_id TEXT,
+                depth INTEGER,
+                thread_id TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # 5. PASTIKAN DATA DEFAULT ADA
+            self.cur.execute("""
+                INSERT INTO bot_status (id, is_active, auto_reply, current_personality, context_depth, reply_understanding) 
+                VALUES (1, TRUE, FALSE, 'Si Gaul', 30, TRUE)
                 ON CONFLICT (id) DO UPDATE 
-                SET current_personality = COALESCE(bot_status.current_personality, 'Si Gaul')
+                SET current_personality = COALESCE(bot_status.current_personality, 'Si Gaul'),
+                    context_depth = COALESCE(bot_status.context_depth, 30),
+                    reply_understanding = COALESCE(bot_status.reply_understanding, TRUE)
             """)
             
             self.conn.commit()
-            print("✅ Database migration completed!")
+            print("✅ Database migration for CONTEXT UNDERSTANDING completed!")
             
         except Exception as e:
             print(f"⚠️ Migration error (non-critical): {e}")
@@ -209,12 +254,20 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS users (
                 user_id TEXT PRIMARY KEY,
                 name TEXT,
+                panggilan TEXT[],
+                hobi TEXT[],
+                sifat TEXT,
+                kebiasaan TEXT,
+                topik_favorit TEXT[],
+                cara_bicara TEXT,
                 is_admin BOOLEAN DEFAULT FALSE,
+                last_active TIMESTAMP,
+                message_count INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
 
-            # Tabel messages
+            # Tabel messages (lengkap)
             self.cur.execute("""
             CREATE TABLE IF NOT EXISTS messages (
                 id SERIAL PRIMARY KEY,
@@ -223,7 +276,51 @@ class DatabaseManager:
                 name TEXT,
                 message TEXT,
                 reply_to_msg_id INTEGER,
+                reply_chain_id TEXT,
+                reply_depth INTEGER DEFAULT 0,
+                reply_to_name TEXT,
+                reply_to_message TEXT,
+                reply_to_user_id TEXT,
+                conversation_thread TEXT,
                 is_sticker BOOLEAN DEFAULT FALSE,
+                mood TEXT,
+                topics TEXT[],
+                mentioned_users TEXT[],
+                is_question BOOLEAN DEFAULT FALSE,
+                is_teasing BOOLEAN DEFAULT FALSE,
+                message_type TEXT,
+                context_before TEXT,
+                context_after TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+
+            # Tabel conversation threads
+            self.cur.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_threads (
+                thread_id TEXT PRIMARY KEY,
+                chat_id TEXT,
+                started_by TEXT,
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                topic TEXT,
+                participants TEXT[],
+                message_count INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE
+            )
+            """)
+
+            # Tabel reply relationships
+            self.cur.execute("""
+            CREATE TABLE IF NOT EXISTS reply_relationships (
+                id SERIAL PRIMARY KEY,
+                message_id INTEGER,
+                reply_to_message_id INTEGER,
+                chat_id TEXT,
+                user_id TEXT,
+                reply_to_user_id TEXT,
+                depth INTEGER,
+                thread_id TEXT,
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
@@ -270,32 +367,37 @@ class DatabaseManager:
                 id INTEGER PRIMARY KEY DEFAULT 1,
                 is_active BOOLEAN DEFAULT TRUE,
                 auto_reply BOOLEAN DEFAULT FALSE,
+                current_personality TEXT DEFAULT 'Si Gaul',
+                context_depth INTEGER DEFAULT 30,
+                reply_understanding BOOLEAN DEFAULT TRUE,
                 updated_by TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
 
             self.conn.commit()
-            print("✅ Database tables initialized")
+            print("✅ Database tables initialized with CONTEXT UNDERSTANDING")
             
         except Exception as e:
             print(f"❌ Table initialization error: {e}")
             self.conn.rollback()
     
-    def update_gaul_settings(self):
+    def update_settings(self):
         try:
             settings = [
-                ('temperature', '0.98'),
-                ('max_response_tokens', '300'),
-                ('max_history', '40'),
-                ('top_p', '0.96'),
-                ('presence_penalty', '0.8'),
-                ('frequency_penalty', '0.8'),
+                ('temperature', '0.85'),
+                ('max_response_tokens', '150'),
+                ('max_history', '30'),
+                ('top_p', '0.9'),
+                ('presence_penalty', '0.6'),
+                ('frequency_penalty', '0.6'),
                 ('auto_reply_mode', 'false'),
                 ('current_token_index', '0'),
-                ('cooldown_seconds', '2.0'),
+                ('cooldown_seconds', '1.5'),
                 ('max_collect_messages', '2'),
-                ('gaul_level', '100')
+                ('context_depth', '30'),
+                ('reply_understanding', 'true'),
+                ('max_thread_messages', '20')
             ]
             
             for key, value in settings:
@@ -307,7 +409,7 @@ class DatabaseManager:
                 """, (key, value))
             
             self.conn.commit()
-            print("✅ SUPER GAUL settings applied!")
+            print("✅ CONTEXT UNDERSTANDING settings applied!")
             
         except Exception as e:
             print(f"Error updating settings: {e}")
@@ -406,33 +508,33 @@ def load_tokens_from_db():
 HF_TOKENS = load_tokens_from_db()
 
 # =============================
-# BOT STATUS - VERSION DENGAN FALLBACK
+# BOT STATUS
 # =============================
 
 def get_bot_status():
-    """Get current bot status dengan fallback kalo kolom belum ada"""
+    """Get current bot status dengan context understanding"""
     try:
         try:
             db.conn.rollback()
         except:
             pass
         
-        # Coba query dengan try-except per kolom
         try:
-            # Coba ambil semua kolom
             row = db.execute(
-                "SELECT is_active, auto_reply, current_personality FROM bot_status WHERE id = 1",
+                "SELECT is_active, auto_reply, current_personality, context_depth, reply_understanding FROM bot_status WHERE id = 1",
                 fetch="one"
             )
             if row:
                 return {
                     "is_active": row[0], 
                     "auto_reply": row[1],
-                    "personality": row[2] if row[2] else "Si Gaul"
+                    "personality": row[2] if row[2] else "Si Gaul",
+                    "context_depth": row[3] if row[3] else 30,
+                    "reply_understanding": row[4] if row[4] else True
                 }
         except Exception as e:
-            print(f"⚠️ Full query failed, trying basic: {e}")
-            # Fallback ke query dasar
+            print(f"⚠️ Full query failed: {e}")
+            # Fallback
             row = db.execute(
                 "SELECT is_active, auto_reply FROM bot_status WHERE id = 1",
                 fetch="one"
@@ -441,15 +543,28 @@ def get_bot_status():
                 return {
                     "is_active": row[0], 
                     "auto_reply": row[1],
-                    "personality": "Si Gaul"  # Default
+                    "personality": "Si Gaul",
+                    "context_depth": 30,
+                    "reply_understanding": True
                 }
         
-        # Kalo belum ada data, return default
-        return {"is_active": True, "auto_reply": False, "personality": "Si Gaul"}
+        return {
+            "is_active": True, 
+            "auto_reply": False, 
+            "personality": "Si Gaul",
+            "context_depth": 30,
+            "reply_understanding": True
+        }
         
     except Exception as e:
         print(f"Error get_bot_status: {e}")
-        return {"is_active": True, "auto_reply": False, "personality": "Si Gaul"}
+        return {
+            "is_active": True, 
+            "auto_reply": False, 
+            "personality": "Si Gaul",
+            "context_depth": 30,
+            "reply_understanding": True
+        }
 
 def set_bot_active(active, updated_by):
     try:
@@ -469,31 +584,15 @@ def set_bot_active(active, updated_by):
 
 def set_bot_personality(personality, updated_by):
     try:
-        # Coba update dengan kolom current_personality
-        try:
-            db.execute(
-                """
-                UPDATE bot_status 
-                SET current_personality = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = 1
-                """,
-                (personality, str(updated_by)),
-                commit=True
-            )
-        except Exception:
-            # Kalo kolom belum ada, tambahin dulu
-            print("⚠️ Adding current_personality column...")
-            db.execute("ALTER TABLE bot_status ADD COLUMN current_personality TEXT DEFAULT 'Si Gaul'")
-            db.execute(
-                """
-                UPDATE bot_status 
-                SET current_personality = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = 1
-                """,
-                (personality, str(updated_by)),
-                commit=True
-            )
-        
+        db.execute(
+            """
+            UPDATE bot_status 
+            SET current_personality = %s, updated_by = %s, updated_at = CURRENT_TIMESTAMP 
+            WHERE id = 1
+            """,
+            (personality, str(updated_by)),
+            commit=True
+        )
         return get_bot_status()
     except Exception as e:
         print(f"Error set_bot_personality: {e}")
@@ -746,18 +845,35 @@ class AIClientManager:
 ai_manager = AIClientManager()
 
 # =============================
-# USER SYSTEM
+# USER SYSTEM - LENGKAP
 # =============================
 
-FORCED_NAMES = {
-    "8229304441": "Rifkyy",
-    "6876331769": "Adell"
-}
+def get_user_info(user_id):
+    """Dapatkan info lengkap user"""
+    uid = str(user_id)
+    
+    # Cek di GRUP_MEMBERS dulu
+    for name, info in GRUP_MEMBERS.items():
+        if info.get("user_id") == uid:
+            return info
+    
+    # Kalo gak ada, return default
+    return {
+        "panggilan": ["bro", "sis"],
+        "hobi": [],
+        "sifat": "random",
+        "kebiasaan": "ngetik random",
+        "topik_favorit": ["random"],
+        "cara_bicara": "biasa"
+    }
 
 def get_user_name(user_id):
     uid = str(user_id)
-    if uid in FORCED_NAMES:
-        return FORCED_NAMES[uid]
+    
+    # Cek di GRUP_MEMBERS
+    for name, info in GRUP_MEMBERS.items():
+        if info.get("user_id") == uid:
+            return name
     
     try:
         name = db.execute(
@@ -765,225 +881,354 @@ def get_user_name(user_id):
             (uid,),
             fetch="value"
         )
-        return name if name else "akhi"
+        return name if name else "bro"
     except Exception as e:
         print(f"Error get_user_name: {e}")
-        return "akhi"
+        return "bro"
 
-def save_user(user_id, name, interests=None, personality=None):
+def save_user(user_id, name, message=""):
+    """Simpan user dengan info lengkap"""
     uid = str(user_id)
     try:
-        # Coba insert dengan semua kolom
-        try:
-            db.execute(
-                """
-                INSERT INTO users (user_id, name, interests, personality)
-                VALUES (%s,%s,%s,%s)
-                ON CONFLICT (user_id)
-                DO UPDATE SET name=EXCLUDED.name, interests=EXCLUDED.interests, personality=EXCLUDED.personality
-                """,
-                (uid, name, interests, personality),
-                commit=True
-            )
-        except Exception:
-            # Fallback ke insert dasar
-            db.execute(
-                """
-                INSERT INTO users (user_id, name)
-                VALUES (%s,%s)
-                ON CONFLICT (user_id)
-                DO UPDATE SET name=EXCLUDED.name
-                """,
-                (uid, name),
-                commit=True
-            )
+        user_info = get_user_info(uid)
+        
+        # Update message count
+        db.execute(
+            """
+            INSERT INTO users (user_id, name, panggilan, hobi, sifat, kebiasaan, topik_favorit, cara_bicara, last_active, message_count)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, 1)
+            ON CONFLICT (user_id) DO UPDATE 
+            SET name = EXCLUDED.name,
+                last_active = CURRENT_TIMESTAMP,
+                message_count = users.message_count + 1
+            """,
+            (uid, name, user_info.get("panggilan", []), user_info.get("hobi", []), 
+             user_info.get("sifat", ""), user_info.get("kebiasaan", ""), 
+             user_info.get("topik_favorit", []), user_info.get("cara_bicara", "")),
+            commit=True
+        )
     except Exception as e:
         print(f"Error save_user: {e}")
-
-def get_user_interests(user_id):
-    """Ambil minat user dari database"""
-    uid = str(user_id)
-    try:
-        interests = db.execute(
-            "SELECT interests FROM users WHERE user_id=%s",
-            (uid,),
-            fetch="value"
-        )
-        return interests if interests else []
-    except Exception as e:
-        print(f"Error get_user_interests: {e}")
-        return []
 
 def is_admin(user_id):
     return str(user_id) in [str(admin) for admin in ADMIN_IDS]
 
 # =============================
-# SUPER CONTEXT MEMORY
+# SUPER CONTEXT UNDERSTANDING ENGINE
 # =============================
 
-def extract_topics(message):
-    """Ekstrak topik dari pesan"""
-    topics = []
+def analyze_message(message, user_name, reply_to_msg_id=None):
+    """Analisis pesan secara mendalam"""
     message_lower = message.lower()
     
+    # Deteksi tipe pesan
+    message_type = "normal"
+    if reply_to_msg_id:
+        message_type = "reply"
+    if user_name.lower() in message_lower or "zai" in message_lower:
+        message_type = "mention"
+    if re.search(r'^zai+!*$', message_lower.strip()):
+        message_type = "call"
+    
+    # Deteksi pertanyaan
+    is_question = "?" in message or any(q in message_lower for q in ["apa", "siapa", "kenapa", "gimana", "kapan", "dimana"])
+    
+    # Deteksi ledekan
+    is_teasing = any(word in message_lower for word in ["ledek", "wle", "becanda", "ngatain", "bloon", "bodoh", "goblok", "tolol"])
+    
+    # Deteksi mood
+    mood = "neutral"
+    if any(word in message_lower for word in ["wkwk", "haha", "hehe", "😂", "😄", "lucu"]):
+        mood = "happy"
+    elif any(word in message_lower for word in ["sedih", "galau", "betah", "😢", ":("]):
+        mood = "sad"
+    elif any(word in message_lower for word in ["marah", "kesel", "jengkel", "😠"]):
+        mood = "angry"
+    elif is_question:
+        mood = "curious"
+    
+    # Ekstrak topik
+    topics = []
     topic_keywords = {
-        "marvel": ["marvel", "avenger", "iron man", "thor", "captain america", "loki"],
-        "film": ["film", "movie", "nonton", "bioskop"],
-        "makan": ["makan", "laper", "pesen", "nyemil"],
-        "tugas": ["tugas", "kerja", "kuliah", "sekolah"],
-        "galau": ["galau", "sedih", "betah", "capek"],
+        "Marvel": ["marvel", "avenger", "iron man", "thor", "captain america", "loki", "thanos"],
+        "film": ["film", "movie", "nonton", "bioskop", "sinema"],
+        "makanan": ["makan", "laper", "pesen", "nyemil", "ngemil", "lapar"],
+        "tugas": ["tugas", "kerja", "kuliah", "sekolah", "pr"],
+        "galau": ["galau", "sedih", "betah", "capek", "lelah"],
+        "random": ["random", "acak", "gatau", "gak jelas"]
     }
     
     for topic, keywords in topic_keywords.items():
         if any(keyword in message_lower for keyword in keywords):
             topics.append(topic)
     
-    return topics
-
-def detect_mood(message):
-    """Deteksi mood dari pesan"""
-    message_lower = message.lower()
+    if not topics:
+        topics = ["random"]
     
-    if any(word in message_lower for word in ["wkwk", "haha", "hehe", "😂", "😄"]):
-        return "happy"
-    elif any(word in message_lower for word in ["sedih", "galau", "betah", "😢"]):
-        return "sad"
-    elif any(word in message_lower for word in ["marah", "kesel", "jengkel", "😠"]):
-        return "angry"
-    elif "?" in message:
-        return "curious"
-    else:
-        return "neutral"
+    # Ekstrak mentioned users
+    mentioned_users = []
+    for name in GRUP_MEMBERS.keys():
+        if name.lower() in message_lower and name != user_name:
+            mentioned_users.append(name)
+    
+    return {
+        "type": message_type,
+        "is_question": is_question,
+        "is_teasing": is_teasing,
+        "mood": mood,
+        "topics": topics,
+        "mentioned_users": mentioned_users,
+        "length": len(message)
+    }
 
-def save_message(chat_id, user_id, name, message, reply_to_msg_id=None, is_sticker=False):
-    """Simpan pesan dengan analisis konteks - VERSION DENGAN FALLBACK"""
+def get_reply_chain(message_id, chat_id, depth=5):
+    """Dapatkan rantai reply secara lengkap"""
     try:
-        mood = detect_mood(message)
-        topics = extract_topics(message)
-        reply_to_name = None
-        reply_to_message = None
-        
-        if reply_to_msg_id:
-            try:
-                reply_info = db.execute(
-                    """
-                    SELECT name, message FROM messages 
-                    WHERE id = %s AND chat_id = %s
-                    """,
-                    (reply_to_msg_id, str(chat_id)),
-                    fetch="one"
-                )
-                if reply_info:
-                    reply_to_name = reply_info[0]
-                    reply_to_message = reply_info[1]
-            except Exception as e:
-                print(f"Error getting reply info: {e}")
-        
-        # Coba insert dengan semua kolom
-        try:
-            db.execute(
-                """
-                INSERT INTO messages
-                (chat_id, user_id, name, message, reply_to_msg_id, reply_to_name, reply_to_message, is_sticker, mood, topics)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """,
-                (str(chat_id), str(user_id), name, message, reply_to_msg_id, reply_to_name, reply_to_message, is_sticker, mood, topics),
-                commit=True
+        # Ambil message ini dan semua reply chainnya
+        rows = db.execute(
+            """
+            WITH RECURSIVE reply_chain AS (
+                -- Base: message yang dicari
+                SELECT id, reply_to_msg_id, user_id, name, message, 0 as depth
+                FROM messages 
+                WHERE id = %s AND chat_id = %s
+                
+                UNION ALL
+                
+                -- Recursive: reply ke atas
+                SELECT m.id, m.reply_to_msg_id, m.user_id, m.name, m.message, rc.depth + 1
+                FROM messages m
+                INNER JOIN reply_chain rc ON m.id = rc.reply_to_msg_id
+                WHERE m.chat_id = %s AND rc.depth < %s
             )
-        except Exception as e:
-            print(f"⚠️ Full insert failed, trying basic insert: {e}")
-            # Fallback ke insert dasar
-            db.execute(
-                """
-                INSERT INTO messages
-                (chat_id, user_id, name, message, reply_to_msg_id, is_sticker)
-                VALUES (%s,%s,%s,%s,%s,%s)
-                """,
-                (str(chat_id), str(user_id), name, message, reply_to_msg_id, is_sticker),
-                commit=True
-            )
+            SELECT * FROM reply_chain ORDER BY depth DESC
+            """,
+            (message_id, str(chat_id), str(chat_id), depth),
+            fetch="all"
+        ) or []
+        
+        chain = []
+        for row in rows:
+            chain.append({
+                "id": row[0],
+                "reply_to": row[1],
+                "user_id": row[2],
+                "name": row[3],
+                "message": row[4],
+                "depth": row[5]
+            })
+        
+        return chain
     except Exception as e:
-        print(f"Error save_message: {e}")
+        print(f"Error get_reply_chain: {e}")
+        return []
 
-def get_conversation_context(chat_id, limit=30):
-    """
-    Ambil konteks percakapan super lengkap - VERSION DENGAN FALLBACK
-    """
+def get_conversation_thread(chat_id, limit=30):
+    """Ambil seluruh thread percakapan dengan pemahaman reply"""
     try:
-        # Coba query dengan semua kolom
-        try:
-            rows = db.execute(
-                """
-                SELECT 
-                    name, 
-                    message, 
-                    reply_to_name,
-                    reply_to_message,
-                    mood,
-                    topics,
-                    timestamp
-                FROM messages 
-                WHERE chat_id = %s AND is_sticker = FALSE
-                ORDER BY id DESC
-                LIMIT %s
-                """,
-                (str(chat_id), limit),
-                fetch="all"
-            ) or []
-        except Exception:
-            # Fallback ke query dasar
-            rows = db.execute(
-                """
-                SELECT 
-                    name, 
-                    message,
-                    timestamp
-                FROM messages 
-                WHERE chat_id = %s AND is_sticker = FALSE
-                ORDER BY id DESC
-                LIMIT %s
-                """,
-                (str(chat_id), limit),
-                fetch="all"
-            ) or []
-            
-            # Format tanpa kolom tambahan
-            rows.reverse()
-            return "\n".join([f"{row[0]}: {row[1]}" for row in rows])
+        # Ambil messages dengan konteks reply
+        rows = db.execute(
+            """
+            SELECT 
+                m1.name,
+                m1.message,
+                m1.reply_to_name,
+                m1.reply_to_message,
+                m1.mood,
+                m1.topics,
+                m1.is_question,
+                m1.is_teasing,
+                m1.message_type,
+                m1.timestamp,
+                m2.name as replied_to_name,
+                m2.message as replied_to_message
+            FROM messages m1
+            LEFT JOIN messages m2 ON m1.reply_to_msg_id = m2.id
+            WHERE m1.chat_id = %s AND m1.is_sticker = FALSE
+            ORDER BY m1.id DESC
+            LIMIT %s
+            """,
+            (str(chat_id), limit),
+            fetch="all"
+        ) or []
         
         rows.reverse()
         
-        context_lines = []
-        current_topics = set()
-        
+        conversation = []
         for row in rows:
-            # Handle different row lengths based on what columns exist
-            if len(row) >= 6:
-                name, msg, reply_name, reply_msg, mood, topics = row[:6]
-                if topics:
-                    current_topics.update(topics if topics else [])
-                
-                if reply_name and reply_msg:
-                    context_lines.append(f"{name} (membalas {reply_name} yang bilang \"{reply_msg}\"): {msg} [mood: {mood}]")
-                else:
-                    context_lines.append(f"{name}: {msg} [mood: {mood}]")
-            else:
-                # Basic format
-                name, msg = row[:2]
-                context_lines.append(f"{name}: {msg}")
+            msg_data = {
+                "speaker": row[0],
+                "message": row[1],
+                "reply_to_name": row[2] or row[10],  # reply_to_name atau replied_to_name
+                "reply_to_message": row[3] or row[11],  # reply_to_message atau replied_to_message
+                "mood": row[4],
+                "topics": row[5],
+                "is_question": row[6],
+                "is_teasing": row[7],
+                "type": row[8],
+                "time": row[9].strftime("%H:%M") if row[9] else ""
+            }
+            conversation.append(msg_data)
         
-        # Tambahin ringkasan topik kalo ada
-        if current_topics:
-            context_lines.insert(0, f"TOPIK YANG DBAHAS: {', '.join(current_topics)}")
+        return conversation
+    except Exception as e:
+        print(f"Error get_conversation_thread: {e}")
+        return []
+
+def format_conversation_for_prompt(conversation):
+    """Format percakapan untuk prompt dengan pemahaman reply chain"""
+    if not conversation:
+        return "(belum ada percakapan)"
+    
+    lines = []
+    for i, msg in enumerate(conversation[-15:]):  # Ambil 15 pesan terakhir
+        if msg["reply_to_name"]:
+            # Ini adalah reply
+            lines.append(f"[{msg['time']}] {msg['speaker']} → (ngebales {msg['reply_to_name']} yang bilang \"{msg['reply_to_message'][:50]}\"): {msg['message']}")
+        else:
+            # Bukan reply
+            lines.append(f"[{msg['time']}] {msg['speaker']}: {msg['message']}")
+    
+    return "\n".join(lines)
+
+def detect_conversation_patterns(conversation):
+    """Deteksi pola percakapan"""
+    patterns = {
+        "is_ongoing_teasing": False,
+        "current_topic": "random",
+        "who_is_active": [],
+        "reply_chains": [],
+        "questions_unanswered": []
+    }
+    
+    # Deteksi ledekan berantai
+    teasing_count = sum(1 for msg in conversation[-10:] if msg["is_teasing"])
+    if teasing_count >= 2:
+        patterns["is_ongoing_teasing"] = True
+    
+    # Deteksi topik terakhir
+    if conversation:
+        last_msg = conversation[-1]
+        if last_msg["topics"]:
+            patterns["current_topic"] = last_msg["topics"][0]
+    
+    # Deteksi siapa yang aktif
+    active_users = {}
+    for msg in conversation[-10:]:
+        active_users[msg["speaker"]] = active_users.get(msg["speaker"], 0) + 1
+    patterns["who_is_active"] = [user for user, count in sorted(active_users.items(), key=lambda x: x[1], reverse=True)][:3]
+    
+    # Deteksi reply chains
+    chains = []
+    for i, msg in enumerate(conversation):
+        if msg["reply_to_name"]:
+            chains.append(f"{msg['speaker']} ngebales {msg['reply_to_name']}")
+    patterns["reply_chains"] = chains[-5:]  # 5 reply chain terakhir
+    
+    return patterns
+
+def save_message_with_context(chat_id, user_id, name, message, reply_to_msg_id=None, is_sticker=False):
+    """Simpan pesan dengan analisis konteks lengkap"""
+    try:
+        # Analisis pesan
+        analysis = analyze_message(message, name, reply_to_msg_id)
         
-        return "\n".join(context_lines)
+        # Dapatkan reply chain info
+        reply_chain = None
+        reply_chain_id = None
+        reply_depth = 0
+        reply_to_name = None
+        reply_to_message = None
+        reply_to_user_id = None
+        
+        if reply_to_msg_id:
+            reply_info = db.execute(
+                """
+                SELECT name, message, user_id, reply_chain_id, reply_depth 
+                FROM messages 
+                WHERE id = %s AND chat_id = %s
+                """,
+                (reply_to_msg_id, str(chat_id)),
+                fetch="one"
+            )
+            if reply_info:
+                reply_to_name = reply_info[0]
+                reply_to_message = reply_info[1]
+                reply_to_user_id = reply_info[2]
+                reply_chain_id = reply_info[3] or f"thread_{reply_to_msg_id}"
+                reply_depth = (reply_info[4] or 0) + 1
+        
+        # Dapatkan konteks sebelum
+        context_before = db.execute(
+            """
+            SELECT message FROM messages 
+            WHERE chat_id = %s AND id < (SELECT COALESCE(MAX(id), 0) FROM messages)
+            ORDER BY id DESC LIMIT 3
+            """,
+            (str(chat_id),),
+            fetch="all"
+        )
+        context_before = [row[0] for row in context_before] if context_before else []
+        
+        # Simpan message
+        db.execute(
+            """
+            INSERT INTO messages
+            (chat_id, user_id, name, message, reply_to_msg_id, reply_chain_id, reply_depth,
+             reply_to_name, reply_to_message, reply_to_user_id, is_sticker,
+             mood, topics, mentioned_users, is_question, is_teasing, message_type,
+             context_before)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """,
+            (str(chat_id), str(user_id), name, message, reply_to_msg_id, reply_chain_id, reply_depth,
+             reply_to_name, reply_to_message, reply_to_user_id, is_sticker,
+             analysis["mood"], analysis["topics"], analysis["mentioned_users"],
+             analysis["is_question"], analysis["is_teasing"], analysis["type"],
+             str(context_before)),
+            commit=True
+        )
+        
+        # Dapatkan ID message yang baru disimpan
+        msg_id = db.execute("SELECT LASTVAL()", fetch="value")
+        
+        # Simpan reply relationship
+        if reply_to_msg_id:
+            db.execute(
+                """
+                INSERT INTO reply_relationships
+                (message_id, reply_to_message_id, chat_id, user_id, reply_to_user_id, depth, thread_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (msg_id, reply_to_msg_id, str(chat_id), str(user_id), reply_to_user_id, reply_depth, reply_chain_id),
+                commit=True
+            )
+        
+        # Update conversation thread
+        if reply_chain_id:
+            db.execute(
+                """
+                INSERT INTO conversation_threads (thread_id, chat_id, started_by, topic, participants)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (thread_id) DO UPDATE
+                SET last_message_at = CURRENT_TIMESTAMP,
+                    message_count = conversation_threads.message_count + 1,
+                    participants = array(
+                        SELECT DISTINCT unnest(conversation_threads.participants || %s)
+                    )
+                """,
+                (reply_chain_id, str(chat_id), str(user_id), analysis["topics"][0] if analysis["topics"] else "random",
+                 [name], [name]),
+                commit=True
+            )
+        
+        return msg_id
         
     except Exception as e:
-        print(f"Error get_conversation_context: {e}")
-        return ""
+        print(f"Error save_message_with_context: {e}")
+        return None
 
 # =============================
-# SMART MESSAGE COLLECTOR
+# SMART MESSAGE COLLECTOR - VERSI SUPER PAHAM KONTEKS
 # =============================
 
 class SmartMessageCollector:
@@ -992,10 +1237,11 @@ class SmartMessageCollector:
         self.processing = False
         self.lock = asyncio.Lock()
         self.last_message_time = {}
+        self.conversation_memory = {}
     
-    async def add_message(self, event, sender_name, message_text, reply_context=None):
+    async def add_message(self, event, sender_name, message_text, reply_context=None, msg_analysis=None):
         async with self.lock:
-            self.pending_messages.append((event, sender_name, message_text, reply_context))
+            self.pending_messages.append((event, sender_name, message_text, reply_context, msg_analysis))
             
             if not self.processing:
                 self.processing = True
@@ -1003,17 +1249,8 @@ class SmartMessageCollector:
     
     async def process_messages(self):
         try:
-            cooldown_str = db.get_setting('cooldown_seconds', '2.0')
-            try:
-                cooldown = float(cooldown_str)
-            except:
-                cooldown = 2.0
-            
-            max_messages_str = db.get_setting('max_collect_messages', '2')
-            try:
-                max_messages = int(max_messages_str)
-            except:
-                max_messages = 2
+            cooldown = float(db.get_setting('cooldown_seconds', '1.5'))
+            max_messages = int(db.get_setting('max_collect_messages', '2'))
             
             await asyncio.sleep(cooldown)
             
@@ -1026,25 +1263,41 @@ class SmartMessageCollector:
                 self.pending_messages.clear()
                 self.processing = False
             
-            # Analisis dan gabungin pesan
-            conversation_flow = ""
+            # Analisis dan gabungin pesan dengan pemahaman konteks
+            conversation_flow = []
             events = []
             all_reply_contexts = []
+            all_analysis = []
             
-            for i, (event, sender, msg, reply_ctx) in enumerate(messages_to_process[:max_messages]):
-                mood = detect_mood(msg)
-                
-                if reply_ctx:
-                    conversation_flow += f"{sender} [mood: {mood}] (membalas {reply_ctx['reply_to_name']} yang bilang \"{reply_ctx['reply_to_message']}\"): {msg}\n"
-                    all_reply_contexts.append(reply_ctx)
-                else:
-                    conversation_flow += f"{sender} [mood: {mood}]: {msg}\n"
-                events.append(event)
+            for i, (event, sender, msg, reply_ctx, analysis) in enumerate(messages_to_process[:max_messages]):
+                if analysis:
+                    all_analysis.append(analysis)
+                    
+                    if reply_ctx:
+                        conversation_flow.append({
+                            "sender": sender,
+                            "message": msg,
+                            "type": "reply",
+                            "reply_to": reply_ctx.get("reply_to_name"),
+                            "reply_message": reply_ctx.get("reply_to_message"),
+                            "mood": analysis.get("mood"),
+                            "topics": analysis.get("topics")
+                        })
+                        all_reply_contexts.append(reply_ctx)
+                    else:
+                        conversation_flow.append({
+                            "sender": sender,
+                            "message": msg,
+                            "type": "normal",
+                            "mood": analysis.get("mood"),
+                            "topics": analysis.get("topics")
+                        })
+                    events.append(event)
             
             last_event = events[-1] if events else None
             
-            if last_event and conversation_flow.strip():
-                await self.generate_super_gaul_reply(last_event, conversation_flow.strip(), all_reply_contexts)
+            if last_event and conversation_flow:
+                await self.generate_context_aware_reply(last_event, conversation_flow, all_reply_contexts, all_analysis)
                 
         except Exception as e:
             print(f"Error in process_messages: {e}")
@@ -1053,180 +1306,202 @@ class SmartMessageCollector:
                 self.pending_messages.clear()
                 self.processing = False
     
-    async def generate_super_gaul_reply(self, event, conversation_flow, reply_contexts):
+    async def generate_context_aware_reply(self, event, conversation_flow, reply_contexts, analyses):
+        """Generate reply dengan pemahaman konteks super dalam"""
         try:
             sender = await event.get_sender()
             user_id = sender.id
             user_name = get_user_name(user_id)
             
-            max_history = int(db.get_setting('max_history', '40'))
             bot_status = get_bot_status()
+            context_depth = bot_status.get("context_depth", 30)
             
             async with client.action(event.chat_id, 'typing'):
-                previous_context = get_conversation_context(event.chat_id, max_history)
+                # Ambil seluruh konteks percakapan
+                full_conversation = get_conversation_thread(event.chat_id, context_depth)
+                
+                # Deteksi pola percakapan
+                patterns = detect_conversation_patterns(full_conversation)
                 
                 # Pilih personality
                 personality = next((p for p in ZAI_PERSONALITIES if p["name"] == bot_status["personality"]), ZAI_PERSONALITIES[0])
                 
-                # Build prompt SUPER DUPER GAUL
-                prompt = build_super_gaul_prompt(
-                    user_name, 
-                    previous_context, 
-                    conversation_flow, 
+                # Format percakapan untuk prompt
+                formatted_conversation = format_conversation_for_prompt(full_conversation)
+                
+                # Build prompt SUPER PAHAM KONTEKS
+                prompt = build_context_aware_prompt(
+                    user_name,
+                    formatted_conversation,
+                    conversation_flow,
                     reply_contexts,
+                    analyses,
+                    patterns,
                     personality
                 )
                 
-                print(f"\n📝=== SUPER GAUL PROMPT ===")
+                print(f"\n📝=== SUPER CONTEXT PROMPT ===")
                 print(f"Personality: {personality['name']}")
-                print(f"Pesan: {conversation_flow}")
+                print(f"Pola: {patterns}")
+                print(f"Flow: {conversation_flow}")
                 print(f"========================\n")
                 
-                ai_reply = await generate_ai_response(prompt)
+                ai_reply = await generate_context_aware_response(prompt, conversation_flow, user_name)
                 
-                # Validasi dan perbaiki reply biar makin gaul
-                ai_reply = validate_and_enhance_reply(ai_reply, conversation_flow, user_name)
+                # Kalo gagal validasi, coba lagi
+                if ai_reply is None:
+                    print("⚠️ Reply gagal validasi, coba generate ulang...")
+                    await asyncio.sleep(1)
+                    ai_reply = await generate_context_aware_response(prompt, conversation_flow, user_name, retry=True)
                 
-                save_message(event.chat_id, "AI", "Zai", ai_reply)
+                # Kalo masih gagal, pake fallback
+                if ai_reply is None:
+                    ai_reply = get_fallback_reply(conversation_flow, user_name)
+                
+                # Simpan reply Zai
+                save_message_with_context(event.chat_id, "AI", "Zai", ai_reply)
                 
                 print(f"🤖 [Zai] {ai_reply}\n")
                 
                 # Random delay biar natural
-                delay = random.uniform(1.0, 2.5)
+                delay = random.uniform(0.8, 1.8)
                 await asyncio.sleep(delay)
                 await event.reply(ai_reply)
                 
         except Exception as e:
-            print(f"Error in generate_super_gaul_reply: {e}")
+            print(f"Error in generate_context_aware_reply: {e}")
             traceback.print_exc()
 
 message_collector = SmartMessageCollector()
 
 # =============================
-# SUPER GAUL PROMPT ENGINE
+# SUPER CONTEXT PROMPT ENGINE
 # =============================
 
-def build_super_gaul_prompt(current_user, previous_context, new_messages, reply_contexts, personality):
+def build_context_aware_prompt(current_user, conversation_history, new_messages, reply_contexts, analyses, patterns, personality):
     """
-    PROMPT YANG SUPER DUPER GAUL - Paham konteks, bisa ledek-ledekan
+    PROMPT YANG SUPER PAHAM KONTEKS - Ngerti reply chain, ngerti ledekan, ngerti topik
     """
     
     # Dapatkan info user
-    user_info = GRUP_FACTS.get(current_user, GRUP_FACTS["Zai"])
-    panggilan = random.choice(user_info["panggilan"])
+    user_info = GRUP_MEMBERS.get(current_user, GRUP_MEMBERS["Zai"])
+    panggilan = random.choice(user_info.get("panggilan", ["bro"]))
     
-    # Random gaul words
-    gaul_awalan = random.choice(["Wkwk", "Eh", "Waduh", "Anjir", "Nah", "Cuy", "Bro"])
-    gaul_akhiran = random.choice([" wkwk", " sih", " deh", " dong", " bgt", ""])
+    # Analisis pesan terbaru
+    last_msg = new_messages[-1] if new_messages else {}
+    last_sender = last_msg.get("sender", "")
+    last_message = last_msg.get("message", "")
     
-    # Analisis reply chain
-    reply_analysis = analyze_reply_chain(new_messages, reply_contexts)
+    # Deteksi tipe pesan terakhir
+    is_call = len(new_messages) == 1 and re.search(r'^zai+!*$', last_message.lower().strip())
+    is_teasing = any(msg.get("is_teasing") for msg in analyses if msg) or patterns.get("is_ongoing_teasing")
+    is_reply_chain = len([ctx for ctx in reply_contexts if ctx]) > 0
     
-    # Deteksi kalo ada yang lagi ngeledek
-    is_teasing = any(word in new_messages.lower() for word in ["ledek", "wle", "becanda", "ngatain"])
+    # Build konteks reply chain
+    reply_chain_context = ""
+    if reply_contexts and any(reply_contexts):
+        reply_chain_context = "\n=== RANTAI REPLY YANG TERJADI ===\n"
+        for i, ctx in enumerate(reply_contexts):
+            if ctx:
+                reply_chain_context += f"{ctx['sender_name']} NGEREPLY ke {ctx['reply_to_name']}: \"{ctx['message']}\"\n"
+                reply_chain_context += f"→ {ctx['reply_to_name']} sebelumnya bilang: \"{ctx['reply_to_message']}\"\n\n"
     
-    # Deteksi topik
-    topics = extract_topics_from_context(new_messages)
+    # Build topik yang sedang dibahas
+    topics_discussed = set()
+    for msg in new_messages:
+        if msg.get("topics"):
+            topics_discussed.update(msg["topics"])
+    for analysis in analyses:
+        if analysis and analysis.get("topics"):
+            topics_discussed.update(analysis["topics"])
     
-    return f"""LO ADALAH ZAI - TEMEN GAUL BANGET DI GRUP
+    topics_text = ", ".join(topics_discussed) if topics_discussed else "random"
+    
+    # Informasi siapa yang aktif
+    active_users = patterns.get("who_is_active", [])
+    active_text = ", ".join(active_users[:3]) if active_users else "semua orang"
+    
+    return f"""LO ADALAH ZAI - ANAK GAUL DI GRUP YANG SUPER PAHAM KONTEKS!
 
-=== PERSONALITY LO SEKARANG ===
+=== PERSONALITY LO SKRANG ===
 Nama: {personality['name']}
 Gaya bicara: {personality['style']}
 Contoh: {personality['examples']}
 
-=== ATURAN MAIN YANG HARUS LO INGET ===
-1. GAUL BANGET - Pake kata-kata: {random.choice(list(GAUL_EXPRESSIONS.values()))}
-2. NYAMBUNG - Kalo ada reply, lo HARUS paham konteksnya
-3. BALAS LEDEKAN - Kalo dieledek, ledek balik yang keras!
-4. PAHAM HOBI MEREKA:
-   - Rifkyy suka Marvel/Avenger → kalo perlu pake analogi Marvel
-   - Adell suka ngemil, sering sibuk
-5. JANGAN KAKU! Lo temen nongkrong, bukan AI formal
+=== PROFIL LENGKAP ANAK GRUP ===
+• Rifkyy: Panggilan {GRUP_MEMBERS['Rifkyy']['panggilan']}, {GRUP_MEMBERS['Rifkyy']['sifat']}, hobi {GRUP_MEMBERS['Rifkyy']['hobi']}
+• Adell: Panggilan {GRUP_MEMBERS['Adell']['panggilan']}, {GRUP_MEMBERS['Adell']['sifat']}, hobi {GRUP_MEMBERS['Adell']['hobi']}
+• Dwayne John: Suka ngetik singkat, suka manggil "zai" doang
+• Lo sendiri: Zai, suka ngledek balik, paham konteks
 
-=== PROFIL ANAK GRUP ===
-• Rifkyy: {GRUP_FACTS['Rifkyy']['sifat']}, hobi {', '.join(GRUP_FACTS['Rifkyy']['hobi'])}
-• Adell: {GRUP_FACTS['Adell']['sifat']}, hobi {', '.join(GRUP_FACTS['Adell']['hobi'])}
-• Lo sendiri: Zai, {GRUP_FACTS['Zai']['sifat']}
+=== ATURAN MAIN YANG HARUS LO INGET BANGET ===
 
-=== PERCAKAPAN SEBELUMNYA ===
-{previous_context}
+1. **PAHAM KONTEKS REPLY:**
+   - Kalo ada yang ngereply pesan orang lain, lo HARUS paham itu lagi ngebales siapa dan apa
+   - Jangan sampe lo ngejawab gak nyambung sama konteks reply
+   - Kalo ada reply chain berantai, lo harus ngerti alurnya
+
+2. **CARA NGELEDEK YANG BENER:**
+   - Kalo dieledek: LANGSUNG LEDEK BALIK, jangan tanya kabar!
+   - Contoh bales ledekan: "Wle, lu kalo ngeledek gak mutu" / "Hush, jangan ngeledek nanti lo yang kena"
+   - Contoh SALAH: "Hai, ada yang bisa dibantu?" (INI CUSTOMER SERVICE BUKAN ZAI!)
+
+3. **KALO DIPANGGIL "ZAI" DOANG:**
+   ❌ Jangan panjang lebar kayak: "Hai! Ada yang ingin kamu ceritakan?"
+   ✅ Balas singkat kayak: "Ngapain?" / "Apaan?" / "Woi?" / "Kenapa manggil?"
+   - Kalo yang manggil Dwayne John (yang suka ngetik zai doang), lo harus tau ini udah kebiasaan dia
+
+4. **JANGAN NGULANG PERTANYAAN:**
+   - Kalo lo udah nanya sesuatu, jangan nanya hal yang sama lagi
+   - Contoh SALAH: nanya "ada yang mau diceritain?" padahal udah ditanyain sebelumnya
+
+5. **PAHAM TOPIK YANG SEDANG DIBAHAS:**
+   - Lagi bahas Marvel? Pake analogi Marvel
+   - Lagi bahas makanan? Sambungin ke makanan
+   - Lagi random? Ikutan random tapi tetep nyambung
+
+6. **PERHATIKAN POLA PERCAKAPAN:**
+   - Yang paling aktif sekarang: {active_text}
+   - Lagi pada ngapain: {patterns.get('current_topic', 'random')}
+   - Ada ledek-ledekan: {'IYA' if is_teasing else 'TIDAK'}
+
+=== KONTEKS PERCAKAPAN SEBELUMNYA ===
+{conversation_history}
 
 === PESAN-PESAN BARU (YANG HARUS LO TANGGAPI) ===
-{new_messages}
+{chr(10).join([f"{msg['sender']}: {msg['message']}" for msg in new_messages])}
 
-{reply_analysis}
+{reply_chain_context}
 
-=== TOPIK YANG SEDANG DBAHAS ===
-{', '.join(topics) if topics else 'Gak jelas, mungkin lagi random-an'}
+=== TOPIK YANG SEDANG DIBAHAS ===
+{topics_text}
 
-=== YANG HARUS LO LAKUKAN ===
-{gaul_awalan} {get_action_instruction(is_teasing, topics, reply_contexts)}{gaul_akhiran}
+=== INSTRUKSI KHUSUS ===
+{f'⚠️ INI PENTING: Lagi ada ledek-ledekan! Balas ledek dengan ledek, JANGAN NANYA KABAR!' if is_teasing else ''}
+{f'⚠️ INI PENTING: {last_sender} manggil lo doang! Balas singkat aja!' if is_call else ''}
+{f'⚠️ INI PENTING: Ada reply chain! Pastikan jawaban lo nyambung sama yang di-reply!' if is_reply_chain else ''}
 
-RESPON LO (ZAI) - GASKEUN LANGSUNG:
+RESPON LO (ZAI) - LANGSUNG GAS, JANGAN PAKE "HAI" ATAU "HALO":
 """
 
-def analyze_reply_chain(messages, reply_contexts):
-    """Analisis rantai reply"""
-    if not reply_contexts:
-        return "• Gak ada reply chain khusus, lanjutin aja obrolan"
-    
-    analysis = ["🔗 ANALISIS REPLY CHAIN:"]
-    for ctx in reply_contexts:
-        analysis.append(f"• {ctx['sender_name']} NGEREPLY ke {ctx['reply_to_name']}")
-        analysis.append(f"  └ {ctx['reply_to_name']} sebelumnya: \"{ctx['reply_to_message']}\"")
-        analysis.append(f"  └ {ctx['sender_name']} nimpalin: \"{ctx['message']}\"")
-    
-    return "\n".join(analysis)
-
-def extract_topics_from_context(messages):
-    """Ekstrak topik dari konteks"""
-    topics = []
-    message_lower = messages.lower()
-    
-    if any(word in message_lower for word in ["marvel", "avenger", "thor", "iron"]):
-        topics.append("Marvel")
-    if any(word in message_lower for word in ["makan", "laper", "pesen"]):
-        topics.append("Makanan")
-    if any(word in message_lower for word in ["tugas", "kerja", "kuliah"]):
-        topics.append("Tugas/Kuliah")
-    if "ledek" in message_lower or "wle" in message_lower:
-        topics.append("Ledek-ledekan")
-    
-    return topics if topics else ["Random"]
-
-def get_action_instruction(is_teasing, topics, reply_contexts):
-    """Dapetin instruksi aksi berdasarkan konteks"""
-    if is_teasing:
-        return "NIH ADA YANG NGELEDEK! LEDEK BALIK YANG KERAS! Jangan malah nanya kabar!"
-    
-    if "Marvel" in topics:
-        return "NIH TOPIK MARVEL! Pake analogi Marvel biar Rifkyy makin semangat!"
-    
-    if reply_contexts:
-        return "PERHATIKAN REPLY CHAIN DI ATAS! Jawab harus nyambung sama yang di-reply!"
-    
-    return "LANJUTIN OBROLAN, tapi pastikan nyambung sama topik sebelumnya!"
-
 # =============================
-# AI RESPONSE GENERATOR
+# AI RESPONSE GENERATOR - VERSI CONTEXT AWARE
 # =============================
 
-async def generate_ai_response(prompt):
-    max_retries = 5
+async def generate_context_aware_response(prompt, conversation_flow, user_name, retry=False):
+    """Generate response dengan validasi konteks"""
+    max_retries = 3 if not retry else 2
     
-    temperature = float(db.get_setting('temperature', '0.98'))
-    max_tokens = int(db.get_setting('max_response_tokens', '300'))
-    top_p = float(db.get_setting('top_p', '0.96'))
-    presence_penalty = float(db.get_setting('presence_penalty', '0.8'))
-    frequency_penalty = float(db.get_setting('frequency_penalty', '0.8'))
+    temperature = float(db.get_setting('temperature', '0.85'))
+    max_tokens = int(db.get_setting('max_response_tokens', '150'))
+    top_p = float(db.get_setting('top_p', '0.9'))
     
     for attempt in range(max_retries):
         try:
             client_info = ai_manager.get_current_client()
             
             if not client_info:
-                return "Waduh tokennya pada error nih, bentar ya gw perbaiki dulu 😅"
+                return get_fallback_reply(conversation_flow, user_name)
             
             current_token = client_info["token"]
             print(f"🤖 Attempt {attempt + 1} using token: {current_token[:10]}...")
@@ -1238,107 +1513,144 @@ async def generate_ai_response(prompt):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                top_p=top_p,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty
+                top_p=top_p
             )
             
             reply = response.choices[0].message.content
             reply = reply.strip('"').strip("'").strip()
             
-            try:
+            # Validasi dengan konteks
+            validated = validate_reply_with_context(reply, conversation_flow, user_name)
+            
+            if validated:
+                # Log success
                 response_time = (datetime.now() - start_time).total_seconds()
                 db.execute(
                     "INSERT INTO api_usage (token_prefix, success, response_time) VALUES (%s, %s, %s)",
                     (current_token[:10], True, response_time),
                     commit=True
                 )
-            except Exception as e:
-                print(f"Error logging success: {e}")
-            
-            ai_manager.mark_token_success(current_token)
-            
-            return reply
-            
+                
+                ai_manager.mark_token_success(current_token)
+                return validated
+            else:
+                print("⚠️ Reply gagal validasi konteks")
+                if attempt < max_retries - 1:
+                    ai_manager.rotate_token()
+                    await asyncio.sleep(1)
+                    continue
+                
         except Exception as e:
             error_msg = str(e)
             print(f"⚠️ Error: {error_msg[:100]}")
             
-            try:
-                db.execute(
-                    "INSERT INTO api_usage (token_prefix, success, error_message) VALUES (%s, %s, %s)",
-                    (current_token[:10], False, error_msg[:200]),
-                    commit=True
-                )
-            except Exception as e:
-                print(f"Error logging failure: {e}")
+            db.execute(
+                "INSERT INTO api_usage (token_prefix, success, error_message) VALUES (%s, %s, %s)",
+                (current_token[:10], False, error_msg[:200]),
+                commit=True
+            )
             
-            if "402" in error_msg or "Payment Required" in error_msg:
-                result = ai_manager.mark_token_failed(current_token)
-                print(result)
-                
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(1)
-                    continue
-            else:
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                    continue
+            if attempt < max_retries - 1:
+                ai_manager.rotate_token()
+                await asyncio.sleep(1)
+                continue
     
+    return None
+
+def validate_reply_with_context(reply, conversation_flow, user_name):
+    """Validasi reply dengan konteks percakapan"""
+    
+    # Cek kata-kata terlarang (customer service mode)
+    forbidden_phrases = [
+        "hai", "halo", "hey", "hi",
+        "ada yang bisa", "ada yang ingin", "ada yang mau",
+        "saya siap", "gue siap", "siap dengerin",
+        "ceritain", "cerita", "kabar",
+        "😄", "🌟", "🎉", "🎶",  # Emoji lebay
+    ]
+    
+    reply_lower = reply.lower()
+    
+    for phrase in forbidden_phrases:
+        if phrase in reply_lower:
+            print(f"❌ Reply mengandung '{phrase}'")
+            return None
+    
+    # Cek panjang reply
+    words = reply.split()
+    if len(words) > 25:  # Kebanyakan
+        print(f"❌ Reply kepanjangan ({len(words)} kata)")
+        return None
+    
+    # Cek kalo dipanggil doang, harus singkat
+    if len(conversation_flow) == 1 and re.search(r'^zai+!*$', conversation_flow[0]["message"].lower().strip()):
+        if len(words) > 10:
+            print("❌ Reply kepanjangan untuk manggil doang")
+            return None
+    
+    # Cek kalo ada ledekan, harus ledek balik
+    is_teasing = any(msg.get("is_teasing") for msg in conversation_flow if isinstance(msg, dict))
+    if is_teasing:
+        teasing_responses = ["wle", "ledek", "hush", "cis", "ciah", "wkwk"]
+        if not any(word in reply_lower for word in teasing_responses):
+            print("❌ Lagi ledekan tapi reply gak nyambung")
+            return None
+    
+    # Bersihin reply dari sisa-sisa formatting
+    reply = re.sub(r'\[\s*\w+\s*\]', '', reply)  # Hapus [mood: happy]
+    reply = re.sub(r'\s+', ' ', reply).strip()
+    
+    return reply
+
+def get_fallback_reply(conversation_flow, user_name):
+    """Fallback reply kalo AI error"""
+    
+    # Deteksi konteks buat fallback yang relevan
+    last_msg = conversation_flow[-1] if conversation_flow else {}
+    last_sender = last_msg.get("sender", "")
+    last_text = last_msg.get("message", "").lower()
+    
+    # Kalo dipanggil doang
+    if re.search(r'^zai+!*$', last_text):
+        return random.choice([
+            "Ngapain?",
+            "Apaan?",
+            "Woi?",
+            "Kenapa manggil?",
+            "Lah?"
+        ])
+    
+    # Kalo lagi ledekan
+    if any(word in last_text for word in ["ledek", "wle", "bloon"]):
+        return random.choice([
+            f"Wle, {last_sender} kalo ngeledek gak mutu",
+            f"Hush, jangan ngeledek, nanti lo yang kena",
+            f"Cis, ledek mulu kerjaan lo"
+        ])
+    
+    # Kalo nanya sesuatu
+    if "?" in last_text:
+        return random.choice([
+            f"Hmm, gatau dah {user_name}",
+            f"Waduh, bingung gw",
+            f"Nanya mulu sih"
+        ])
+    
+    # Default random
     return random.choice([
-        "Waduh error mulu nih, cobain lagi ntar ya 😅",
-        "Anjir lagi error, tunggu bentar ya gw restart dulu",
-        "Maap bro lagi bermasalah, ulang lagi ntar yak",
-        "Error mulu sih, sabar ya lagi dibenerin"
+        "Wkwk",
+        "Lah",
+        "Njir",
+        "Gaskeun",
+        "Santuy"
     ])
 
 # =============================
-# REPLY VALIDATION & ENHANCEMENT
-# =============================
-
-def validate_and_enhance_reply(reply, original_messages, user_name):
-    """Validasi dan perbaiki reply biar makin gaul"""
-    
-    # Cek kalo reply-nya terlalu formal
-    formal_patterns = [
-        (r'saya\s+(\w+)', r'gue \1'),
-        (r'baik(\W|$)', r'bae\1'),
-        (r'tidak(\W|$)', r'gak\1'),
-        (r'iya(\W|$)', r'iya\1'),
-        (r'halo(\W|$)', r'oy\1'),
-    ]
-    
-    enhanced = reply
-    for pattern, replacement in formal_patterns:
-        enhanced = re.sub(pattern, replacement, enhanced, flags=re.IGNORECASE)
-    
-    # Tambahin wkwk kalo kurang
-    if "wkwk" not in enhanced.lower() and len(enhanced) > 30:
-        if random.random() > 0.5:
-            enhanced += " " + random.choice(["wkwk", "wkwkwk", "😂"])
-    
-    # Kalo ada ledekan, pastikan dibales
-    if "ledek" in original_messages.lower() or "wle" in original_messages.lower():
-        if "kabar" in enhanced.lower() or "sehat" in enhanced.lower():
-            # Ini reply gak nyambung, ganti paksa
-            return random.choice([
-                f"Wle? {user_name} kalo dieledek malah nanya kabar, gak nyambung amat wkwk",
-                f"Hush, jangan ngeledek! Tapi boong, ledek aja lagi Rif, gue tahan wkwk",
-                f"Lu ledek gue, gue balas ledek. Fair kan? {user_name} :v"
-            ])
-    
-    # Kalo reply-nya terlalu pendek dan garing
-    if len(enhanced) < 20 and not any(g in enhanced.lower() for g in ["wkwk", "😂", "😅"]):
-        enhanced += " " + random.choice(["wkwk", "sih", "deh", "dong"])
-    
-    return enhanced
-
-# =============================
-# HELP MENU
+# COMMAND HANDLERS
 # =============================
 
 HELP_TEXT = """
-**🔰 ZAI - SUPER GAUL EDITION V2.0** 
+**🔰 ZAI - SUPER CONTEXT AWARE EDITION** 
 
 **🤖 Commands untuk Semua User:**
 • `!zai [pesan]` - Ngobrol dengan Zai
@@ -1360,31 +1672,21 @@ HELP_TEXT = """
 • `/mode auto` - Mode Auto (jawab semua pesan)
 • `/mode trigger` - Mode Trigger (jawab pake !zai)
 
-**⚙️ Settings GAUL:**
-• `temperature` = 0.98 (kreativitas max)
-• `max_response_tokens` = 300 (panjang ideal)
-• `max_history` = 40 (ingatan 40 pesan terakhir)
-• `cooldown_seconds` = 2.0 (nunggu sebelum reply)
-• `max_collect_messages` = 2 (gabungin 2 pesan)
-• `gaul_level` = 100 (GAUL BANGET!)
-
-**✨ FITUR SUPER GAUL:**
+**⚙️ FITUR SUPER CONTEXT AWARE:**
 • ✅ PAHAM REPLY CHAIN - Tau siapa reply ke siapa
-• ✅ BISA LEDEK BALIK - Kalo dieledek, dibales ledek
-• ✅ PAHAM HOBI - Tau Rifkyy suka Marvel, Adell suka ngemil
-• ✅ GAUL BANGET - Pake bahasa sehari-hari
-• ✅ SMART DELAY - Nunggu bentar kalo ada pesan lanjutan
-• ✅ SKIP STICKER - Gak bakal reply sticker
-• ✅ AUTO MIGRATION - Otomatis update database
+• ✅ PAHAM KONTEKS - Ngerti kalo lagi ledekan atau nanya
+• ✅ BALAS SESUAI - Kalo dipanggil doang, balas singkat
+• ✅ GAK FORMAL - Bukan customer service!
+• ✅ INGAT POLA - Tau kebiasaan tiap user
+• ✅ AUTO MIGRATION - Database update otomatis
 
-**📝 CONTOH PERCAKAPAN:**
+**📝 CONTOH:**
+• User: "zai" → Zai: "Ngapain?"
+• User: "ledek Zai" → Zai: "Wle, lu yang ledek gak mutu"
+• User reply ke user lain → Zai paham konteks reply
 
-**🔥 GASKEUN TERUS!**
+**🔥 GASKEUN!**
 """
-
-# =============================
-# COMMAND HANDLERS
-# =============================
 
 @client.on(events.NewMessage(pattern=r'^/help$'))
 async def help_handler(event):
@@ -1410,15 +1712,13 @@ async def status_handler(event):
         mode_text = "AUTO" if bot_status['auto_reply'] else "TRIGGER"
         status_text = "AKTIF ✅" if bot_status['is_active'] else "NONAKTIF ❌"
         
-        gaul_level = db.get_setting('gaul_level', '100')
-        
         message = f"""
-**📊 ZAI STATUS - SUPER GAUL**
+**📊 ZAI STATUS - CONTEXT AWARE**
 
 **Status:** {status_text}
 **Mode:** {mode_text}
 **Personality:** {bot_status['personality']}
-**Gaul Level:** {gaul_level}%
+**Context Depth:** {bot_status['context_depth']} messages
 
 **Token Aktif:** {stats['active_tokens']}/{stats['total_tokens']}
 **Request 24h:** {stats['requests_24h']}
@@ -1426,9 +1726,8 @@ async def status_handler(event):
 
 **Fitur Aktif:**
 ✅ Paham reply chain
-✅ Bisa ledek balik
-✅ Pake bahasa gaul
-✅ Smart delay 2s
+✅ Balas sesuai konteks
+✅ Gak formal kayak CS
 ✅ Auto migration
 
 Ketik /help buat liat command.
@@ -1443,7 +1742,6 @@ async def personality_handler(event):
     if event.chat_id != ALLOWED_CHAT_ID:
         return
     
-    # Kalo tanpa parameter, tampilkan personality sekarang
     if not event.pattern_match.group(1):
         bot_status = get_bot_status()
         personalities = [p["name"] for p in ZAI_PERSONALITIES]
@@ -1452,7 +1750,7 @@ async def personality_handler(event):
 • `{bot_status['personality']}`
 
 **📋 DAFTAR PERSONALITY:**
-• `Si Gaul` - Santuy abis
+• `Si Gaul` - Santuy
 • `Si Tukang Ledek` - Hobi ngegas
 • `Si Random` - Suka ngelantur tapi nyambung
 • `Si Ngegas` - Cepat nanggepin
@@ -1469,7 +1767,6 @@ Gunakan: `/personality [nama]`
     try:
         personality_name = event.pattern_match.group(1).strip()
         
-        # Validasi personality
         valid_names = [p["name"] for p in ZAI_PERSONALITIES]
         if personality_name not in valid_names:
             await event.reply(f"❌ Personality harus salah satu: {', '.join(valid_names)}")
@@ -1641,7 +1938,7 @@ async def settings_handler(event):
             fetch="all"
         ) or []
         
-        message = "**⚙️ PENGATURAN GAUL**\n\n"
+        message = "**⚙️ PENGATURAN**\n\n"
         for key, value in settings:
             message += f"• `{key}` = `{value}`\n"
         
@@ -1665,7 +1962,7 @@ async def set_handler(event):
         
         valid_keys = ['max_history', 'max_response_tokens', 'temperature', 'top_p', 
                       'presence_penalty', 'frequency_penalty', 'cooldown_seconds', 
-                      'max_collect_messages', 'gaul_level']
+                      'max_collect_messages', 'context_depth']
         
         if key not in valid_keys:
             await event.reply(f"❌ Key harus: {', '.join(valid_keys)}")
@@ -1677,15 +1974,10 @@ async def set_handler(event):
             if val < 0.0 or val > 1.0:
                 await event.reply(f"❌ {key} harus antara 0.0 - 1.0")
                 return
-        elif key in ['max_history', 'max_response_tokens', 'max_collect_messages']:
+        elif key in ['max_history', 'max_response_tokens', 'max_collect_messages', 'context_depth']:
             val = int(value)
-            if key == 'max_collect_messages' and (val < 1 or val > 5):
-                await event.reply(f"❌ max_collect_messages harus 1-5")
-                return
-        elif key == 'gaul_level':
-            val = int(value)
-            if val < 0 or val > 100:
-                await event.reply(f"❌ gaul_level harus 0-100")
+            if val < 1 or val > 100:
+                await event.reply(f"❌ {key} harus 1-100")
                 return
         
         db.execute(
@@ -1768,7 +2060,7 @@ async def mode_trigger_handler(event):
         await event.reply(f"❌ Error: {str(e)[:100]}")
 
 # =============================
-# MAIN MESSAGE HANDLER
+# MAIN MESSAGE HANDLER - SUPER CONTEXT AWARE
 # =============================
 
 @client.on(events.NewMessage)
@@ -1805,23 +2097,25 @@ async def message_handler(event):
         
         is_sticker = bool(event.sticker)
         
-        # Save user dengan minat (kalo bisa dideteksi)
-        interests = GRUP_FACTS.get(user_name, {}).get("hobi", [])
-        save_user(user_id, user_name, interests)
+        # Save user
+        save_user(user_id, user_name, event.raw_text)
         
         message = event.raw_text
         
         if is_sticker:
-            save_message(event.chat_id, user_id, user_name, "[Sticker]", event.reply_to_msg_id, True)
+            save_message_with_context(event.chat_id, user_id, user_name, "[Sticker]", event.reply_to_msg_id, True)
             print(f"💬 [{user_name}] kirim sticker (skip)")
             return
+        
+        # Analisis pesan
+        analysis = analyze_message(message, user_name, event.reply_to_msg_id)
         
         # Ambil konteks reply
         reply_context = None
         if event.reply_to_msg_id:
             reply_info = db.execute(
                 """
-                SELECT name, message FROM messages 
+                SELECT name, message, user_id FROM messages 
                 WHERE id = %s AND chat_id = %s
                 """,
                 (event.reply_to_msg_id, str(event.chat_id)),
@@ -1831,6 +2125,7 @@ async def message_handler(event):
                 reply_context = {
                     "reply_to_name": reply_info[0],
                     "reply_to_message": reply_info[1],
+                    "reply_to_user_id": reply_info[2],
                     "sender_name": user_name,
                     "message": message
                 }
@@ -1841,12 +2136,13 @@ async def message_handler(event):
         if not clean_message:
             clean_message = message
         
-        save_message(event.chat_id, user_id, user_name, clean_message, event.reply_to_msg_id, False)
+        # Simpan pesan dengan konteks
+        msg_id = save_message_with_context(event.chat_id, user_id, user_name, clean_message, event.reply_to_msg_id, False)
         
-        print(f"\n💬 [{user_name}] {clean_message[:100]}")
+        print(f"\n💬 [{user_name}] {clean_message[:100]} [type: {analysis['type']}]")
         
         # Kirim ke smart collector
-        await message_collector.add_message(event, user_name, clean_message, reply_context)
+        await message_collector.add_message(event, user_name, clean_message, reply_context, analysis)
         
     except Exception as e:
         print(f"Error in message_handler: {e}")
@@ -1868,6 +2164,7 @@ async def periodic_stats():
             
             print(f"\n📊 HOURLY STATS [{datetime.now().strftime('%H:%M')}]")
             print(f"Personality: {bot_status['personality']}")
+            print(f"Context Depth: {bot_status['context_depth']}")
             print(f"Tokens: {stats['active_tokens']}/{stats['total_tokens']}")
             print(f"Current: {current['token'][:10] if current else 'None'}")
             print(f"Requests: {stats['requests_24h']} | Success: {success_rate:.1f}%")
@@ -1897,34 +2194,33 @@ async def health_check():
 # =============================
 
 async def main():
-    print("=" * 60)
-    print("🤖 ZAI - SUPER GAUL EDITION V2.0")
-    print("=" * 60)
+    print("=" * 70)
+    print("🤖 ZAI - SUPER CONTEXT AWARE EDITION V3.0")
+    print("=" * 70)
     
     bot_status = get_bot_status()
     mode_text = "AUTO" if bot_status['auto_reply'] else "TRIGGER"
     status_text = "AKTIF" if bot_status['is_active'] else "NONAKTIF"
     
-    cooldown = db.get_setting('cooldown_seconds', '2.0')
-    gaul_level = db.get_setting('gaul_level', '100')
+    cooldown = db.get_setting('cooldown_seconds', '1.5')
     
     print(f"📊 Status: {status_text} | Mode: {mode_text}")
     print(f"📊 Personality: {bot_status['personality']}")
-    print(f"📊 Gaul Level: {gaul_level}%")
+    print(f"📊 Context Depth: {bot_status['context_depth']} messages")
     print(f"📊 Token Aktif: {len(ai_manager.get_active_tokens())}")
     print(f"📊 Cooldown: {cooldown}s")
     print(f"👑 Admins: {ADMIN_IDS}")
-    print("=" * 60)
-    print("✅ FITUR AKTIF:")
-    print("  • Paham reply chain")
-    print("  • Bisa ledek balik")
-    print("  • Pake bahasa gaul")
-    print("  • Smart delay 2s")
-    print("  • 4 personalities")
-    print("  • Auto migration database")
-    print("=" * 60)
+    print("=" * 70)
+    print("✅ FITUR CONTEXT AWARE AKTIF:")
+    print("  • 🧠 Paham reply chain - tau siapa ngebales siapa")
+    print("  • 🔗 Ngerti konteks percakapan antar user")
+    print("  • 🎯 Balas sesuai - kalo dipanggil doang balas singkat")
+    print("  • 😤 Bisa ledek balik - kalo dieledek, dilawan")
+    print("  • 📝 Gak formal - bukan customer service")
+    print("  • 🔄 Auto migration database")
+    print("=" * 70)
     print("📝 Ketik /help buat liat menu")
-    print("=" * 60)
+    print("=" * 70)
     
     # Start periodic tasks
     asyncio.create_task(periodic_stats())
