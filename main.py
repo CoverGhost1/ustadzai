@@ -382,38 +382,32 @@ class DatabaseManager:
             print(f"❌ Table initialization error: {e}")
             self.conn.rollback()
     
-    def update_settings(self):
-        try:
-            settings = [
-                ('temperature', '0.85'),
-                ('max_response_tokens', '150'),
-                ('max_history', '30'),
-                ('top_p', '0.9'),
-                ('presence_penalty', '0.6'),
-                ('frequency_penalty', '0.6'),
-                ('auto_reply_mode', 'false'),
-                ('current_token_index', '0'),
-                ('cooldown_seconds', '1.5'),
-                ('max_collect_messages', '2'),
-                ('context_depth', '30'),
-                ('reply_understanding', 'true'),
-                ('max_thread_messages', '20')
-            ]
-            
-            for key, value in settings:
-                self.cur.execute("""
-                    INSERT INTO settings (key, value) 
-                    VALUES (%s, %s)
-                    ON CONFLICT (key) DO UPDATE 
-                    SET value = EXCLUDED.value
-                """, (key, value))
-            
-            self.conn.commit()
-            print("✅ CONTEXT UNDERSTANDING settings applied!")
-            
-        except Exception as e:
-            print(f"Error updating settings: {e}")
-            self.conn.rollback()
+   def update_settings(self):
+    try:
+        settings = [
+            ('temperature', '0.9'),  # Naikin biar lebih kreatif
+            ('max_response_tokens', '200'),  # Naikin
+            ('max_history', '20'),
+            ('top_p', '0.92'),
+            ('cooldown_seconds', '1.2'),  # Turunin dikit
+            ('max_collect_messages', '2'),
+            ('validation_strictness', 'low'),  # Tambahin setting validasi
+        ]
+        
+        for key, value in settings:
+            self.cur.execute("""
+                INSERT INTO settings (key, value) 
+                VALUES (%s, %s)
+                ON CONFLICT (key) DO UPDATE 
+                SET value = EXCLUDED.value
+            """, (key, value))
+        
+        self.conn.commit()
+        print("✅ SANTAI MODE settings applied!")
+        
+    except Exception as e:
+        print(f"Error updating settings: {e}")
+        self.conn.rollback()
     
     def execute(self, query, params=None, commit=False, fetch=False):
         max_retries = 3
@@ -1380,121 +1374,90 @@ message_collector = SmartMessageCollector()
 
 def build_context_aware_prompt(current_user, conversation_history, new_messages, reply_contexts, analyses, patterns, personality):
     """
-    PROMPT YANG SUPER PAHAM KONTEKS - Ngerti reply chain, ngerti ledekan, ngerti topik
+    PROMPT YANG SUPER PAHAM KONTEKS - VERSI GAUL
     """
     
-    # Dapatkan info user
     user_info = GRUP_MEMBERS.get(current_user, GRUP_MEMBERS["Zai"])
     panggilan = random.choice(user_info.get("panggilan", ["bro"]))
     
-    # Analisis pesan terbaru
     last_msg = new_messages[-1] if new_messages else {}
     last_sender = last_msg.get("sender", "")
     last_message = last_msg.get("message", "")
     
-    # Deteksi tipe pesan terakhir
-    is_call = len(new_messages) == 1 and re.search(r'^zai+!*$', last_message.lower().strip())
+    # Deteksi tipe pesan terakhir (lebih fleksibel)
+    is_call = False
+    if len(new_messages) == 1:
+        msg_lower = last_message.lower().strip()
+        is_call = re.search(r'za+i+', msg_lower) and len(msg_lower.split()) <= 2
+    
     is_teasing = any(msg.get("is_teasing") for msg in analyses if msg) or patterns.get("is_ongoing_teasing")
     is_reply_chain = len([ctx for ctx in reply_contexts if ctx]) > 0
     
-    # Build konteks reply chain
+    # Build konteks reply chain (lebih ringkas)
     reply_chain_context = ""
     if reply_contexts and any(reply_contexts):
-        reply_chain_context = "\n=== RANTAI REPLY YANG TERJADI ===\n"
-        for i, ctx in enumerate(reply_contexts):
+        reply_chain_context = "=== REPLY CHAIN ===\n"
+        for i, ctx in enumerate(reply_contexts[-2:]):  # Ambil 2 terakhir aja
             if ctx:
-                reply_chain_context += f"{ctx['sender_name']} NGEREPLY ke {ctx['reply_to_name']}: \"{ctx['message']}\"\n"
-                reply_chain_context += f"→ {ctx['reply_to_name']} sebelumnya bilang: \"{ctx['reply_to_message']}\"\n\n"
+                reply_chain_context += f"{ctx['sender_name']} → {ctx['reply_to_name']}: \"{ctx['message'][:50]}\"\n"
     
-    # Build topik yang sedang dibahas
+    # Topik yang dibahas
     topics_discussed = set()
     for msg in new_messages:
         if msg.get("topics"):
             topics_discussed.update(msg["topics"])
-    for analysis in analyses:
-        if analysis and analysis.get("topics"):
-            topics_discussed.update(analysis["topics"])
     
     topics_text = ", ".join(topics_discussed) if topics_discussed else "random"
     
-    # Informasi siapa yang aktif
-    active_users = patterns.get("who_is_active", [])
-    active_text = ", ".join(active_users[:3]) if active_users else "semua orang"
+    # INSTRUKSI YANG LEBIH SANTAI
+    instructions = []
+    if is_teasing:
+        instructions.append("⚠️ Lagi ledekan, boleh ledek balik boleh enggak, santuy aja")
+    if is_call:
+        instructions.append(f"⚠️ {last_sender} manggil lo, balas singkat aja kaya 'ngapain?' atau 'woi?'")
+    if is_reply_chain:
+        instructions.append("⚠️ Ada reply chain, usahain jawabannya nyambung")
     
-    return f"""LO ADALAH ZAI - ANAK GAUL DI GRUP YANG SUPER PAHAM KONTEKS!
+    instructions_text = "\n".join(instructions) if instructions else "Santuy aja, gaskeun"
+    
+    return f"""LO ZAI - ANAK GAUL DI GRUP
 
-=== PERSONALITY LO SKRANG ===
-Nama: {personality['name']}
-Gaya bicara: {personality['style']}
+=== PERSONALITY ===
+{personality['name']}: {personality['style']}
 Contoh: {personality['examples']}
 
-=== PROFIL LENGKAP ANAK GRUP ===
-• Rifkyy: Panggilan {GRUP_MEMBERS['Rifkyy']['panggilan']}, {GRUP_MEMBERS['Rifkyy']['sifat']}, hobi {GRUP_MEMBERS['Rifkyy']['hobi']}
-• Adell: Panggilan {GRUP_MEMBERS['Adell']['panggilan']}, {GRUP_MEMBERS['Adell']['sifat']}, hobi {GRUP_MEMBERS['Adell']['hobi']}
-• Dwayne John: Suka ngetik singkat, suka manggil "zai" doang
-• Lo sendiri: Zai, suka ngledek balik, paham konteks
+=== ANAK GRUP ===
+• Rifkyy: Suka Marvel, suka ngeledek
+• Adell: Cewek, suka ngemil, suka random
+• Dwayne John: Suka ngetik "zai" doang
 
-=== ATURAN MAIN YANG HARUS LO INGET BANGET ===
+=== PESAN SEBELUMNYA ===
+{conversation_history[-15:] if conversation_history else "(belum ada)"}
 
-1. **PAHAM KONTEKS REPLY:**
-   - Kalo ada yang ngereply pesan orang lain, lo HARUS paham itu lagi ngebales siapa dan apa
-   - Jangan sampe lo ngejawab gak nyambung sama konteks reply
-   - Kalo ada reply chain berantai, lo harus ngerti alurnya
-
-2. **CARA NGELEDEK YANG BENER:**
-   - Kalo dieledek: LANGSUNG LEDEK BALIK, jangan tanya kabar!
-   - Contoh bales ledekan: "Wle, lu kalo ngeledek gak mutu" / "Hush, jangan ngeledek nanti lo yang kena"
-   - Contoh SALAH: "Hai, ada yang bisa dibantu?" (INI CUSTOMER SERVICE BUKAN ZAI!)
-
-3. **KALO DIPANGGIL "ZAI" DOANG:**
-   ❌ Jangan panjang lebar kayak: "Hai! Ada yang ingin kamu ceritakan?"
-   ✅ Balas singkat kayak: "Ngapain?" / "Apaan?" / "Woi?" / "Kenapa manggil?"
-   - Kalo yang manggil Dwayne John (yang suka ngetik zai doang), lo harus tau ini udah kebiasaan dia
-
-4. **JANGAN NGULANG PERTANYAAN:**
-   - Kalo lo udah nanya sesuatu, jangan nanya hal yang sama lagi
-   - Contoh SALAH: nanya "ada yang mau diceritain?" padahal udah ditanyain sebelumnya
-
-5. **PAHAM TOPIK YANG SEDANG DIBAHAS:**
-   - Lagi bahas Marvel? Pake analogi Marvel
-   - Lagi bahas makanan? Sambungin ke makanan
-   - Lagi random? Ikutan random tapi tetep nyambung
-
-6. **PERHATIKAN POLA PERCAKAPAN:**
-   - Yang paling aktif sekarang: {active_text}
-   - Lagi pada ngapain: {patterns.get('current_topic', 'random')}
-   - Ada ledek-ledekan: {'IYA' if is_teasing else 'TIDAK'}
-
-=== KONTEKS PERCAKAPAN SEBELUMNYA ===
-{conversation_history}
-
-=== PESAN-PESAN BARU (YANG HARUS LO TANGGAPI) ===
+=== PESAN BARU ===
 {chr(10).join([f"{msg['sender']}: {msg['message']}" for msg in new_messages])}
 
 {reply_chain_context}
 
-=== TOPIK YANG SEDANG DIBAHAS ===
-{topics_text}
+=== INFO ===
+Topik: {topics_text}
+Yang lagi aktif: {patterns.get('who_is_active', ['semua'])[:3]}
 
-=== INSTRUKSI KHUSUS ===
-{f'⚠️ INI PENTING: Lagi ada ledek-ledekan! Balas ledek dengan ledek, JANGAN NANYA KABAR!' if is_teasing else ''}
-{f'⚠️ INI PENTING: {last_sender} manggil lo doang! Balas singkat aja!' if is_call else ''}
-{f'⚠️ INI PENTING: Ada reply chain! Pastikan jawaban lo nyambung sama yang di-reply!' if is_reply_chain else ''}
+{instructions_text}
 
-RESPON LO (ZAI) - LANGSUNG GAS, JANGAN PAKE "HAI" ATAU "HALO":
+RESPON LO (ZAI):
 """
 
 # =============================
 # AI RESPONSE GENERATOR - VERSI CONTEXT AWARE
 # =============================
 
-async def generate_context_aware_response(prompt, conversation_flow, user_name, retry=False):
-    """Generate response dengan validasi konteks"""
+aasync def generate_context_aware_response(prompt, conversation_flow, user_name, retry=False):
+    """Generate response dengan validasi - VERSI SANTAI"""
     max_retries = 3 if not retry else 2
     
-    temperature = float(db.get_setting('temperature', '0.85'))
-    max_tokens = int(db.get_setting('max_response_tokens', '150'))
-    top_p = float(db.get_setting('top_p', '0.9'))
+    temperature = float(db.get_setting('temperature', '0.9'))  # Naikin dikit
+    max_tokens = int(db.get_setting('max_response_tokens', '200'))  # Naikin
     
     for attempt in range(max_retries):
         try:
@@ -1506,143 +1469,180 @@ async def generate_context_aware_response(prompt, conversation_flow, user_name, 
             current_token = client_info["token"]
             print(f"🤖 Attempt {attempt + 1} using token: {current_token[:10]}...")
             
-            start_time = datetime.now()
-            
             response = client_info["client"].chat.completions.create(
                 model="Qwen/Qwen2.5-72B-Instruct",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=temperature,
                 max_tokens=max_tokens,
-                top_p=top_p
+                top_p=0.9
             )
             
             reply = response.choices[0].message.content
             reply = reply.strip('"').strip("'").strip()
             
-            # Validasi dengan konteks
+            # Validasi dengan konteks (versi santai)
             validated = validate_reply_with_context(reply, conversation_flow, user_name)
             
             if validated:
-                # Log success
-                response_time = (datetime.now() - start_time).total_seconds()
-                db.execute(
-                    "INSERT INTO api_usage (token_prefix, success, response_time) VALUES (%s, %s, %s)",
-                    (current_token[:10], True, response_time),
-                    commit=True
-                )
-                
-                ai_manager.mark_token_success(current_token)
                 return validated
             else:
-                print("⚠️ Reply gagal validasi konteks")
-                if attempt < max_retries - 1:
-                    ai_manager.rotate_token()
-                    await asyncio.sleep(1)
-                    continue
+                print(f"⚠️ Reply gagal validasi, coba lagi (percobaan {attempt + 1}/{max_retries})")
                 
-        except Exception as e:
-            error_msg = str(e)
-            print(f"⚠️ Error: {error_msg[:100]}")
-            
-            db.execute(
-                "INSERT INTO api_usage (token_prefix, success, error_message) VALUES (%s, %s, %s)",
-                (current_token[:10], False, error_msg[:200]),
-                commit=True
-            )
-            
-            if attempt < max_retries - 1:
+                # Kalo attempt terakhir, pake fallback
+                if attempt == max_retries - 1:
+                    print("⚠️ Pake fallback reply")
+                    return get_fallback_reply(conversation_flow, user_name)
+                
+                # Rotate token dan coba lagi
                 ai_manager.rotate_token()
                 await asyncio.sleep(1)
-                continue
+                
+        except Exception as e:
+            print(f"⚠️ Error: {str(e)[:100]}")
+            
+            if attempt == max_retries - 1:
+                return get_fallback_reply(conversation_flow, user_name)
+            
+            ai_manager.rotate_token()
+            await asyncio.sleep(1)
     
-    return None
+    return get_fallback_reply(conversation_flow, user_name)
 
 def validate_reply_with_context(reply, conversation_flow, user_name):
-    """Validasi reply dengan konteks percakapan"""
+    """Validasi reply dengan konteks percakapan - VERSI SANTAI"""
     
-    # Cek kata-kata terlarang (customer service mode)
-    forbidden_phrases = [
-        "hai", "halo", "hey", "hi",
-        "ada yang bisa", "ada yang ingin", "ada yang mau",
-        "saya siap", "gue siap", "siap dengerin",
-        "ceritain", "cerita", "kabar",
-        "😄", "🌟", "🎉", "🎶",  # Emoji lebay
+    # Daftar kata yang HARUS dihindari (beneran gak boleh)
+    absolute_forbidden = [
+        "ada yang bisa saya bantu",
+        "ada yang bisa gue bantu",
+        "ada yang ingin kamu ceritakan",
+        "ada yang mau diceritain",
+        "saya siap mendengarkan",
+        "gue siap dengerin"
     ]
     
     reply_lower = reply.lower()
     
-    for phrase in forbidden_phrases:
+    # Cek kata yang beneran gak boleh
+    for phrase in absolute_forbidden:
         if phrase in reply_lower:
-            print(f"❌ Reply mengandung '{phrase}'")
+            print(f"❌ Reply mengandung CS mode: '{phrase}'")
             return None
+    
+    # Kata-kata yang MASIH BOLEH asal konteksnya bener
+    # Contoh: "cerita" boleh kalo lagi pada cerita
+    # Tapi kalo tiba-tiba nanya "ada cerita?" itu yang salah
     
     # Cek panjang reply
     words = reply.split()
-    if len(words) > 25:  # Kebanyakan
-        print(f"❌ Reply kepanjangan ({len(words)} kata)")
-        return None
+    if len(words) > 50:  # Naikin jadi 50 kata
+        print(f"❌ Reply kepanjangan ({len(words)} kata) > 50")
+        # Kalo kepanjangan, potong aja jangan langsung reject
+        reply = " ".join(words[:45]) + "..."
+        print(f"✂️ Dipotong jadi {len(reply.split())} kata")
     
-    # Cek kalo dipanggil doang, harus singkat
-    if len(conversation_flow) == 1 and re.search(r'^zai+!*$', conversation_flow[0]["message"].lower().strip()):
-        if len(words) > 10:
-            print("❌ Reply kepanjangan untuk manggil doang")
-            return None
+    # Kalo dipanggil doang, harus singkat TAPI jangan terlalu strict
+    is_just_call = False
+    if len(conversation_flow) == 1:
+        msg_text = conversation_flow[0].get("message", "").lower().strip()
+        is_just_call = re.search(r'^za+i+!*$', msg_text) or msg_text in ["zai", "zaii", "zaiii", "zay"]
     
-    # Cek kalo ada ledekan, harus ledek balik
-    is_teasing = any(msg.get("is_teasing") for msg in conversation_flow if isinstance(msg, dict))
+    if is_just_call:
+        if len(words) > 15:  # Naikin jadi 15 kata
+            print(f"⚠️ Reply agak panjang buat manggil doang ({len(words)} kata), tapi gpp")
+            # Tetep allowed, cuma kasih warning doang
+    
+    # Cek kalo ada ledekan, HARUS ledek balik? Nggak juga, santuy aja
+    is_teasing = False
+    for msg in conversation_flow:
+        if isinstance(msg, dict) and msg.get("is_teasing"):
+            is_teasing = True
+            break
+    
     if is_teasing:
-        teasing_responses = ["wle", "ledek", "hush", "cis", "ciah", "wkwk"]
-        if not any(word in reply_lower for word in teasing_responses):
-            print("❌ Lagi ledekan tapi reply gak nyambung")
-            return None
+        teasing_words = ["wle", "ledek", "hush", "cis", "ciah", "wkwk", "haha", "hehe"]
+        has_teasing_response = any(word in reply_lower for word in teasing_words)
+        
+        if not has_teasing_response and len(words) > 10:
+            print(f"⚠️ Lagi ledekan tapi reply gak ada teasing words, tapi gapapa")
+            # Jangan reject, cuma kasih warning
     
     # Bersihin reply dari sisa-sisa formatting
     reply = re.sub(r'\[\s*\w+\s*\]', '', reply)  # Hapus [mood: happy]
+    reply = re.sub(r'✅|❌|⚠️|➡️|🔗|📝|📊|🔰', '', reply)  # Hapus emoji command
     reply = re.sub(r'\s+', ' ', reply).strip()
+    
+    # Kalo hasilnya kosong, return None
+    if not reply or len(reply) < 2:
+        return None
     
     return reply
 
 def get_fallback_reply(conversation_flow, user_name):
-    """Fallback reply kalo AI error"""
+    """Fallback reply kalo AI error - VERSI GAUL"""
     
-    # Deteksi konteks buat fallback yang relevan
+    if not conversation_flow:
+        return random.choice([
+            "Wkwk", "Lah", "Njir", "Santuy", "Gaskeun", "Wle"
+        ])
+    
     last_msg = conversation_flow[-1] if conversation_flow else {}
     last_sender = last_msg.get("sender", "")
     last_text = last_msg.get("message", "").lower()
     
-    # Kalo dipanggil doang
-    if re.search(r'^zai+!*$', last_text):
+    # Deteksi kalo manggil doang (lebih fleksibel)
+    if re.search(r'za+i+', last_text) and len(last_text.split()) <= 2:
         return random.choice([
             "Ngapain?",
             "Apaan?",
             "Woi?",
-            "Kenapa manggil?",
-            "Lah?"
+            "Lah?",
+            "Hm?",
+            "Kenapa?",
+            "Iya?"
         ])
     
-    # Kalo lagi ledekan
-    if any(word in last_text for word in ["ledek", "wle", "bloon"]):
+    # Deteksi ledekan (lebih luas)
+    teasing_words = ["ledek", "wle", "bloon", "bodoh", "goblok", "tolol", "ngatain", "hush", "cis"]
+    if any(word in last_text for word in teasing_words):
         return random.choice([
-            f"Wle, {last_sender} kalo ngeledek gak mutu",
-            f"Hush, jangan ngeledek, nanti lo yang kena",
-            f"Cis, ledek mulu kerjaan lo"
+            f"Wle, {last_sender} ngeledek mulu",
+            f"Hush, jangan ngeledek",
+            f"Cis, ledekin mulu",
+            f"Lu ledek gue, gue ledek balik",
+            f"Ledekan lu gak mutu",
+            f"Wkwk dasar tukang ledek",
+            f"{last_sender} mah suka ngeledek"
         ])
     
-    # Kalo nanya sesuatu
-    if "?" in last_text:
+    # Deteksi pertanyaan
+    if "?" in last_text or any(q in last_text for q in ["apa", "siapa", "kenapa", "gimana", "kapan"]):
         return random.choice([
-            f"Hmm, gatau dah {user_name}",
-            f"Waduh, bingung gw",
-            f"Nanya mulu sih"
+            f"Hmm gatau {last_sender}",
+            f"Waduh bingung gw",
+            f"Nanya mulu sih",
+            f"Masa sih?",
+            f"Emang gitu?",
+            f"Menurut lu gimana?"
         ])
     
-    # Default random
+    # Default random yang lebih variatif
     return random.choice([
         "Wkwk",
-        "Lah",
+        "Lah kok?",
         "Njir",
+        "Santuy",
         "Gaskeun",
-        "Santuy"
+        "Wle",
+        "Hush",
+        "Cis",
+        "Bruh",
+        "Yaelah",
+        f"Halah {last_sender}",
+        "Gitu aja ribet",
+        "Ah masa?",
+        "Oalah",
+        "Waduh"
     ])
 
 # =============================
